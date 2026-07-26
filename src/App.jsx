@@ -124,8 +124,8 @@ headers:{"Authorization":`Bearer ${apiKey}`}
 const sd=await sr.json();
 const taskData=sd?.data||sd;
 const status=taskData?.status;
-const clips=taskData?.clips||taskData?.sunoData||[];
-if(status==="complete"&&clips.length>0){
+const clips=taskData?.response?.sunoData||taskData?.sunoData||taskData?.clips||[];
+if(status==="SUCCESS"&&clips.length>0){
 const clip=clips[0];
 const url=clip?.audio_url||clip?.audioUrl||clip?.url;
 const trackTitle=clip?.title||title||"Track";
@@ -135,7 +135,7 @@ setTracks(p=>[track,...p.slice(0,4)]);
 setGenStatus(`✓ "${trackTitle}" pronto!`);
 setTab("tracks");setGenerating(false);
 }else{setTimeout(poll,3000);}
-}else if(status==="error"||status==="failed"){
+}else if(status==="CREATE_TASK_FAILED"||status==="GENERATE_AUDIO_FAILED"||status==="CALLBACK_EXCEPTION"||status==="SENSITIVE_WORD_ERROR"){
 setGenStatus("❌ Errore nella generazione — riprova");setGenerating(false);
 }else{
 const pct=Math.min(att*2,88);
@@ -365,4 +365,4 @@ textarea{resize:vertical}
 </div>
 </div>
 );
-  }
+                                                                                                       }
