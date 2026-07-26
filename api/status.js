@@ -5,9 +5,13 @@ res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 if (req.method === "OPTIONS") return res.status(200).end();
 try {
 const { taskId } = req.query;
-const apiKey = req.headers["authorization"];
+const apiKey = process.env.KIE_API_KEY;
+if (!apiKey) {
+res.status(500).json({ code: 500, msg: "KIE_API_KEY non configurata sul server" });
+return;
+}
 const r = await fetch(`https://api.kie.ai/api/v1/generate/record-info?taskId=${taskId}`, {
-headers: { "Authorization": apiKey }
+headers: { "Authorization": `Bearer ${apiKey}` }
 });
 const text = await r.text();
 let d;
