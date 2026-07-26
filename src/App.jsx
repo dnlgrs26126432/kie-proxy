@@ -76,7 +76,7 @@ mood:`Direttore creativo sonoro XO/Republic Italy. Mood "${mood}" nel ${genre} |
 • Palette sonora dettagliata · • Processing chain · • Mood board 7 immagini · • Come differenziarsi nel 2025`,
 };
 try{
-const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:1000,messages:[{role:"user",content:P[mode]}]})});
+const r=await fetch("https://kie-proxy-three.vercel.app/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-5",max_tokens:1000,messages:[{role:"user",content:P[mode]}]})});
 const d=await r.json();
 setAiOut(d.content?.map(b=>b.text||"").join("")||"Nessuna risposta.");
 }catch{setAiOut("⚠ Errore connessione.");}
