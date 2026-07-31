@@ -127,8 +127,6 @@ const [genCount,setGenCount]=useState(()=>loadCount());
 const [aiOut,setAiOut]=useState("");
 const [aiLoad,setAiLoad]=useState(false);
 const [aiMode,setAiMode]=useState("");
-const [apiKey,setApiKey]=useState("");
-const [showKey,setShowKey]=useState(false);
 const [genStatus,setGenStatus]=useState("");
 const [generating,setGenerating]=useState(false);
 const [tracks,setTracks]=useState([]);
@@ -250,7 +248,6 @@ setTitleLoading(false);
 };
 
 const generateMusic=async()=>{
-if(!apiKey){setShowKey(true);setGenStatus("⚠ Inserisci la tua kie.ai API key");return;}
 setGenerating(true);setGenStatus("⏳ Salvo il progetto...");
 let pid;
 try{ pid=await ensureProjectId(); }
@@ -273,24 +270,25 @@ callBackUrl:"https://example.com/callback",
 try{
 const res=await fetch("https://kie-proxy-three.vercel.app/api/generate",{
 method:"POST",
-headers:{"Content-Type":"application/json","Authorization":`Bearer ${apiKey}`},
+headers:{"Content-Type":"application/json"},
+credentials:"include",
 body:JSON.stringify(body),
 });
 if(!res.ok){
 const e=await res.json().catch(()=>({}));
-setGenStatus(`❌ ${e.message||e.msg||`Errore ${res.status} — verifica la key`}`);
+setGenStatus(`❌ ${e.error||e.message||e.msg||`Errore ${res.status}`}`);
 setGenerating(false);return;
 }
 const data=await res.json();
 const taskId=data?.data?.taskId||data?.taskId;
-if(!taskId){setGenStatus("❌ Nessun taskId ricevuto — verifica key");setGenerating(false);return;}
+if(!taskId){setGenStatus("❌ Nessun taskId ricevuto — riprova");setGenerating(false);return;}
 setGenStatus("⏳ Generazione in corso (~60-90s)...");
 let att=0;
 const poll=async()=>{
 if(att++>50){setGenStatus("⏱ Timeout — riprova tra poco");setGenerating(false);return;}
 try{
 const sr=await fetch(`https://kie-proxy-three.vercel.app/api/status?taskId=${taskId}`,{
-headers:{"Authorization":`Bearer ${apiKey}`}
+credentials:"include"
 });
 const sd=await sr.json();
 const taskData=sd?.data||sd;
@@ -469,7 +467,6 @@ textarea{resize:vertical}
 <button style={s.btn("g")} onClick={saveProject} disabled={saving}>{saving?"…":"💾 Salva"}</button>
 <button style={s.btn("g")} onClick={exportMIDI} title="Esporta accordi in MIDI">🎼 MIDI</button>
 <button style={s.btn("g")} onClick={exportPDF} title="Esporta scheda tecnica in PDF">📄 Scheda</button>
-<button style={s.btn("g")} onClick={()=>setShowKey(v=>!v)}>🔑 API Key{apiKey?" ✓":""}</button>
 <button style={{...s.btn("m"),minWidth:150,opacity:generating?0.7:1}} onClick={()=>setShowPreview(true)} disabled={generating}>
 {generating?<><div style={{width:12,height:12,border:"2px solid #00000033",borderTop:"2px solid #001A16",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>Generazione...</>:<>◈ Genera Canzone</>}
 </button>
@@ -513,13 +510,6 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
 <RefUpload track={refTrack} onSet={setRefTrack} onClear={()=>setRefTrack(null)} s={s}/>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
-{showKey&&(
-<div style={{background:CD,border:`1px solid ${V}44`,borderRadius:8,padding:12}}>
-<span style={s.lbl}>MusicAPI Key</span>
-<input style={{...s.inp,fontSize:12}} type="password" placeholder="Incolla key..." value={apiKey} onChange={e=>setApiKey(e.target.value)}/>
-<div style={{fontSize:10,color:MU,marginTop:6}}>Ottieni la key su <span style={{color:M}}>kie.ai</span> → API Keys</div>
-</div>
-)}
 </div>
 
 {/* MAIN */}
@@ -625,7 +615,7 @@ textarea{resize:vertical}
 {aiOut&&!aiLoad&&<div style={{...s.card(true),position:"relative"}}><div style={{position:"absolute",top:-9,left:12,background:`linear-gradient(90deg,${V},${M})`,color:"#fff",fontSize:9,fontWeight:800,padding:"2px 10px",borderRadius:4,letterSpacing:"1.5px"}}>✦ AI STUDIO</div><pre style={{whiteSpace:"pre-wrap",fontFamily:"Inter,sans-serif",fontSize:13,lineHeight:1.8,color:TX,paddingTop:4}}>{aiOut}</pre></div>}
 <div style={s.card()}>
 <span style={s.lbl}>Genera audio diretto</span>
-<div style={{fontSize:12,color:MU,marginBottom:10,lineHeight:1.5}}>{apiKey?`✓ kie.ai pronta · ${genreFull}, ${mood}, ${bpm} BPM`:"Clicca '🔑 API Key' in alto e incolla la tua key kie.ai per generare audio direttamente qui."}</div>
+<div style={{fontSize:12,color:MU,marginBottom:10,lineHeight:1.5}}>{`✓ Pronto a generare · ${genreFull}, ${mood}, ${bpm} BPM`}</div>
 {genStatus&&<div style={{fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:genStatus.includes("✓")?M:genStatus.includes("❌")?"#FF5757":M,marginBottom:10}}>{genStatus}</div>}
 <button style={s.btn("m",true)} onClick={()=>setShowPreview(true)} disabled={generating}>{generating?<><div style={{width:12,height:12,border:"2px solid #00000033",borderTop:"2px solid #001A16",borderRadius:"50%",animation:"spin 0.7s linear infinite"}}/>In corso...</>:"◈ Genera Canzone"}</button>
 </div>
