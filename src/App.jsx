@@ -1,15 +1,41 @@
 import { Routes, Route } from "react-router-dom";
-import Home from "./pages/Home.jsx";
+import { AuthProvider } from "./context/AuthContext.jsx";
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import Landing from "./pages/Landing.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import Studio from "./pages/Studio.jsx";
 
-// Shell di routing: home (galleria progetti) + studio (console di generazione).
 export default function App() {
-return (
-<Routes>
-<Route path="/" element={<Home />} />
-<Route path="/studio" element={<Studio />} />
-<Route path="/studio/:id" element={<Studio />} />
-<Route path="*" element={<Home />} />
-</Routes>
-);
+  return (
+    <AuthProvider>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/studio"
+          element={
+            <ProtectedRoute>
+              <Studio />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/studio/:id"
+          element={
+            <ProtectedRoute>
+              <Studio />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    </AuthProvider>
+  );
 }
