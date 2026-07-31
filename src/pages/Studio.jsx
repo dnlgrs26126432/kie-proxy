@@ -446,7 +446,7 @@ textarea{resize:vertical}
 {/* TOP BAR */}
 <div style={{height:52,display:"flex",alignItems:"center",justifyContent:"space-between",padding:"0 16px",background:SF,borderBottom:`1px solid ${BR}`,flexShrink:0}}>
 <div style={{display:"flex",alignItems:"center",gap:10}}>
-<Link to="/" style={{textDecoration:"none",color:"inherit",display:"flex",alignItems:"center",gap:10}}>
+<Link to="/dashboard" style={{textDecoration:"none",color:"inherit",display:"flex",alignItems:"center",gap:10}}>
 <div style={{width:32,height:32,borderRadius:8,background:`linear-gradient(135deg,${V},#9B6BFF)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>◈</div>
 <div>
 <div style={{fontSize:13,fontWeight:700}}>Music Studio <span style={{color:V}}>Pro</span></div>
@@ -465,7 +465,7 @@ textarea{resize:vertical}
 {genStatus&&<span style={{fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:genStatus.includes("✓")?M:genStatus.includes("❌")?"#FF5757":M,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{genStatus}</span>}
 </div>
 <div style={{display:"flex",gap:8}}>
-<Link to="/" style={{...s.btn("g"),textDecoration:"none"}}>🏠 Home</Link>
+<Link to="/dashboard" style={{...s.btn("g"),textDecoration:"none"}}>📁 Progetti</Link>
 <button style={s.btn("g")} onClick={saveProject} disabled={saving}>{saving?"…":"💾 Salva"}</button>
 <button style={s.btn("g")} onClick={exportMIDI} title="Esporta accordi in MIDI">🎼 MIDI</button>
 <button style={s.btn("g")} onClick={exportPDF} title="Esporta scheda tecnica in PDF">📄 Scheda</button>
