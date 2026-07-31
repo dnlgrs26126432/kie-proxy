@@ -55,7 +55,7 @@ const PLANS = [
     features: [
       "2 progetti salvati",
       "5 generazioni audio al mese",
-      "Testi e concept AI illimitati",
+      "20 testi/concept AI al mese",
       "Galleria multi-take",
       "Export scheda tecnica PDF",
     ],
@@ -63,7 +63,7 @@ const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: "19",
+    price: "30",
     cadence: "/ mese",
     tagline: "Per chi produce con costanza.",
     cta: "Passa a Pro",
@@ -71,7 +71,7 @@ const PLANS = [
     features: [
       "Progetti illimitati",
       "50 generazioni audio al mese",
-      "Titolo AI e note di regia illimitati",
+      "Titolo AI e testi ad alto volume (300/mese)",
       "Riferimento artistico avanzato",
       "Export scheda tecnica PDF + MIDI",
       "Storico completo dei progetti",
@@ -80,13 +80,13 @@ const PLANS = [
   {
     id: "studio",
     name: "Studio",
-    price: "49",
+    price: "60",
     cadence: "/ mese",
     tagline: "Per team e produzioni professionali.",
     cta: "Passa a Studio",
     features: [
       "Tutto il piano Pro",
-      "Generazioni audio illimitate",
+      "Generazioni audio ad alto volume (fino a 500/mese)",
       "Priorità in coda di generazione",
       "Rimozione branding (white-label)",
       "Supporto prioritario",
