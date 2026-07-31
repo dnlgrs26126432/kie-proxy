@@ -1,13 +1,26 @@
 import { sql, cors } from "./_db.js";
 
-// GET /api/setup-db  -> crea le tabelle projects/tracks se non esistono (idempotente).
-// Endpoint di bootstrap: da rimuovere una volta creato lo schema sul database.
+// GET /api/setup-db  -> crea/aggiorna lo schema (idempotente): utenti, progetti, brani.
+// Endpoint di bootstrap: da rimuovere una volta completata la migrazione.
 export default async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
     await sql`create extension if not exists "pgcrypto"`;
+
+    await sql`
+      create table if not exists users (
+        id uuid primary key default gen_random_uuid(),
+        name text not null,
+        email text not null unique,
+        password_hash text not null,
+        plan text not null default 'free',
+        generation_count integer not null default 0,
+        generation_reset_at timestamptz not null default now(),
+        created_at timestamptz not null default now()
+      )
+    `;
 
     await sql`
       create table if not exists projects (
@@ -32,6 +45,8 @@ export default async function handler(req, res) {
         updated_at timestamptz not null default now()
       )
     `;
+    // migrazione da versione precedente senza collegamento all'utente
+    await sql`alter table projects add column if not exists user_id uuid references users(id) on delete cascade`;
 
     await sql`
       create table if not exists tracks (
@@ -48,8 +63,9 @@ export default async function handler(req, res) {
 
     await sql`create index if not exists idx_tracks_project_id on tracks(project_id)`;
     await sql`create index if not exists idx_projects_updated_at on projects(updated_at desc)`;
+    await sql`create index if not exists idx_projects_user_id on projects(user_id)`;
 
-    return res.status(200).json({ ok: true, message: "Schema creato o gia' esistente." });
+    return res.status(200).json({ ok: true, message: "Schema creato/aggiornato." });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
