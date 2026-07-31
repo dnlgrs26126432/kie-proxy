@@ -21,6 +21,8 @@ export default async function handler(req, res) {
         created_at timestamptz not null default now()
       )
     `;
+    // migrazione da versione precedente senza contatore testi AI
+    await sql`alter table users add column if not exists ai_text_count integer not null default 0`;
 
     await sql`
       create table if not exists projects (

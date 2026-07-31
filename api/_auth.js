@@ -74,7 +74,7 @@ export async function getUserFromRequest(req) {
   const payload = verifyToken(cookies.msp_session);
   if (!payload || !payload.uid) return null;
   const rows = await sql`
-    select id, name, email, plan, generation_count, generation_reset_at, created_at
+    select id, name, email, plan, generation_count, ai_text_count, generation_reset_at, created_at
     from users where id = ${payload.uid}
   `;
   return rows[0] || null;
@@ -87,9 +87,34 @@ export async function comparePassword(pw, hash) {
   return bcrypt.compare(pw, hash);
 }
 
-// Limiti dei piani. Infinity = illimitato.
+function currentMonthKey(d = new Date()) {
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+}
+
+// Controlla il contatore mensile indicato (generation_count o ai_text_count),
+// azzerando entrambi i contatori insieme se e' iniziato un nuovo mese solare.
+// Ritorna { ok, count } senza incrementare: l'incremento resta a carico
+// dell'endpoint chiamante dopo che l'operazione e' andata a buon fine.
+export async function checkMonthlyLimit(user, field, limit) {
+  if (!Number.isFinite(limit)) return { ok: true, count: 0 };
+  const resetKey = user.generation_reset_at ? currentMonthKey(new Date(user.generation_reset_at)) : null;
+  const nowKey = currentMonthKey();
+  let audioCount = user.generation_count || 0;
+  let textCount = user.ai_text_count || 0;
+  if (resetKey !== nowKey) {
+    audioCount = 0;
+    textCount = 0;
+    await sql`update users set generation_count = 0, ai_text_count = 0, generation_reset_at = now() where id = ${user.id}`;
+  }
+  const count = field === "generation_count" ? audioCount : textCount;
+  return { ok: count < limit, count };
+}
+
+// Limiti dei piani. Infinity = illimitato (usato solo per i progetti salvati:
+// generazioni audio e testi AI hanno sempre un tetto, anche generoso, per
+// proteggere il margine dai casi limite).
 export const PLAN_LIMITS = {
-  free: { projects: 2, generationsPerMonth: 5 },
-  pro: { projects: Infinity, generationsPerMonth: 50 },
-  studio: { projects: Infinity, generationsPerMonth: Infinity },
+  free: { projects: 2, generationsPerMonth: 5, aiTextCallsPerMonth: 20 },
+  pro: { projects: Infinity, generationsPerMonth: 50, aiTextCallsPerMonth: 300 },
+  studio: { projects: Infinity, generationsPerMonth: 500, aiTextCallsPerMonth: 800 },
 };

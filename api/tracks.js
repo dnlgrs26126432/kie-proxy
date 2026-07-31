@@ -1,10 +1,6 @@
 import { put, del } from "@vercel/blob";
 import { sql, cors } from "./_db.js";
-import { getUserFromRequest, PLAN_LIMITS } from "./_auth.js";
-
-function currentMonthKey(d = new Date()) {
-  return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
-}
+import { getUserFromRequest, PLAN_LIMITS, checkMonthlyLimit } from "./_auth.js";
 
 // POST   /api/tracks       -> scarica l'audio da kie.ai, lo ricarica su Vercel Blob
 //                             (permanente anche se l'URL di kie.ai scade), salva il
@@ -29,19 +25,11 @@ export default async function handler(req, res) {
       if (ownerRows.length === 0) return res.status(404).json({ error: "Progetto non trovato" });
 
       const limit = PLAN_LIMITS[user.plan]?.generationsPerMonth ?? PLAN_LIMITS.free.generationsPerMonth;
-      if (Number.isFinite(limit)) {
-        const resetKey = user.generation_reset_at ? currentMonthKey(new Date(user.generation_reset_at)) : null;
-        const nowKey = currentMonthKey();
-        let count = user.generation_count || 0;
-        if (resetKey !== nowKey) {
-          count = 0;
-          await sql`update users set generation_count = 0, generation_reset_at = now() where id = ${user.id}`;
-        }
-        if (count >= limit) {
-          return res.status(403).json({
-            error: `Hai raggiunto il limite di ${limit} generazioni/mese del piano ${user.plan}. Passa a un piano superiore per continuare.`,
-          });
-        }
+      const { ok } = await checkMonthlyLimit(user, "generation_count", limit);
+      if (!ok) {
+        return res.status(403).json({
+          error: `Hai raggiunto il limite di ${limit} generazioni/mese del piano ${user.plan}. Passa a un piano superiore per continuare.`,
+        });
       }
 
       const audioRes = await fetch(b.source_url);
