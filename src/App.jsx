@@ -4,12 +4,14 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Landing from "./pages/Landing.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Studio from "./pages/Studio.jsx";
+import ResetPassword from "./pages/ResetPassword.jsx";
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/dashboard"
           element={
