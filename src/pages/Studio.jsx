@@ -220,11 +220,13 @@ setSaving(false);
 
 const callAI=async(mode)=>{
 setAiLoad(true);setAiMode(mode);setAiOut("");
+const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
 const P={
 testo:`Sei il ghostwriter italiano più forte. Scrivi testi COMPLETI per ogni sezione:
 Titolo: "${title||"Untitled"}" | ${genreFull} | ${mood} | ${bpm} BPM | ${key} ${scale}
 Concept: "${concept||"tema emotivo universale"}" | E:${energy}% D:${darkness}%${refArtist?`\nIspirati anche a: ${refArtist}.`:""}${directorNotes?`\nNote di regia: ${directorNotes}.`:""}
 Struttura: ${sections.join(" → ")}
+Durata target: la canzone deve durare circa ${durLabel} (${duration} secondi) — scrivi testo abbastanza lungo da riempire TUTTA la durata: almeno ${linesPerSection} righe piene per ogni sezione (niente frasi vuote, ripetizioni pigre o segnaposto). Un testo troppo corto genera una canzone troppo corta.
 Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}.`,
 idee:`Sei l'A&R italiano più influente. 5 concept hit pronti:
 ${genreFull} | ${mood} | ${bpm} BPM | E${energy}% D${darkness}% | Seed: "${concept||"nessun limite"}"${refArtist?` | Suona come: ${refArtist}`:""}
@@ -237,7 +239,7 @@ mood:`Direttore creativo sonoro XO/Republic Italy. Mood "${mood}" nel ${genreFul
 titolo:`Genera SOLO un titolo di canzone (massimo 5 parole, senza virgolette, senza spiegazioni) per un brano ${genreFull}, mood ${mood}${concept?`, concept: "${concept}"`:""}. Rispondi solo col titolo.`,
 };
 try{
-const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
+const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:mode==="testo"?2000:1000,messages:[{role:"user",content:P[mode]}]})});
 const d=await r.json().catch(()=>({}));
 if(!r.ok||d.error){
 const raw=d.error;
@@ -274,14 +276,16 @@ catch(e){ setGenStatus(`❌ ${e.message}`); setGenerating(false); return; }
 setGenStatus("⏳ Invio richiesta a kie.ai...");
 const lyricsText=sections.map(s=>lyrics[s]?`[${s}]\n${lyrics[s]}`:"").filter(Boolean).join("\n\n");
 const hasLyrics=lyricsText.length>0;
-const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, target length ${durLabel}`;
+const wordCount=lyricsText.split(/\s+/).filter(Boolean).length;
+const lengthWarning=hasLyrics&&wordCount<duration*1.3?` Il testo fornito e' breve rispetto alla durata richiesta: estendi con sezioni strumentali (intro, bridge, assolo, outro) finche' non raggiungi ${durLabel} di durata totale, senza tagliare bruscamente.`:"";
+const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${lengthWarning}`;
 const body={
 model:"V5_5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook.`,
+prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook, enough content for a full ${durLabel} song — do not end early.`,
 negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
 duration:duration,
