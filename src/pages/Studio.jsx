@@ -126,6 +126,7 @@ const [darkness,setDarkness]=useState(70);
 const [refArtist,setRefArtist]=useState("");
 const [duration,setDuration]=useState(120);
 const [instrumental,setInstrumental]=useState(false);
+const [lyricsLang,setLyricsLang]=useState("it");
 const [directorNotes,setDirectorNotes]=useState("");
 const [refTrack,setRefTrack]=useState(null);
 const [showPreview,setShowPreview]=useState(false);
@@ -222,13 +223,14 @@ const callAI=async(mode)=>{
 setAiLoad(true);setAiMode(mode);setAiOut("");
 const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
 const totalWords=Math.max(60,Math.round(duration*2));
+const langName=lyricsLang==="en"?"INGLESE":"ITALIANO";
 const P={
-testo:`Sei il ghostwriter italiano più forte. Scrivi testi COMPLETI, in ITALIANO (non in inglese), per ogni sezione:
+testo:`Sei il ghostwriter più forte del genere ${genreFull}. Scrivi testi COMPLETI, in ${langName} (non in un'altra lingua), per ogni sezione:
 Titolo: "${title||"Untitled"}" | ${genreFull} | ${mood} | ${bpm} BPM | ${key} ${scale}
 Concept: "${concept||"tema emotivo universale"}" | E:${energy}% D:${darkness}%${refArtist?`\nIspirati anche a: ${refArtist}.`:""}${directorNotes?`\nNote di regia: ${directorNotes}.`:""}
 Struttura: ${sections.join(" → ")}
 LUNGHEZZA OBBLIGATORIA: la canzone deve durare ${durLabel} (${duration} secondi). Il testo COMPLETO di tutte le sezioni insieme deve avere ALMENO ${totalWords} parole (conta mentre scrivi, non fermarti prima). Circa ${linesPerSection} righe piene per ogni sezione, niente frasi vuote, ripetizioni pigre o segnaposto: un testo corto produce una canzone corta, quindi scrivi per intero.
-Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}, sempre in italiano.`,
+Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}, sempre in ${langName}.`,
 idee:`Sei l'A&R italiano più influente. 5 concept hit pronti:
 ${genreFull} | ${mood} | ${bpm} BPM | E${energy}% D${darkness}% | Seed: "${concept||"nessun limite"}"${refArtist?` | Suona come: ${refArtist}`:""}
 Per ognuno: 🎯 TITOLO · 📖 STORIA 2 righe · 🎤 HOOK 4 battute esatte · 🔗 DNA artista A x artista B`,
@@ -286,7 +288,7 @@ customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook, enough content for a full ${durLabel} song — do not end early.`,
+prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${lyricsLang==="en"?"English":"Italian"} with a memorable hook, enough content for a full ${durLabel} song — do not end early.`,
 negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
 };
@@ -533,6 +535,7 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Riferimento artistico</span><input style={{...s.inp,fontSize:12}} placeholder="Suona come... es. Shiva x Drake" value={refArtist} onChange={e=>setRefArtist(e.target.value)}/></div>
 <div><span style={s.lbl}>Durata</span><div style={{display:"flex",gap:4}}>{DURATIONS.map(d=><button key={d.v} style={s.chip(duration===d.v)} onClick={()=>setDuration(d.v)}>{d.l}</button>)}</div></div>
 <div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div></div>
+<div><span style={s.lbl}>Lingua testo</span><div style={{display:"flex",gap:4}}><button style={s.chip(lyricsLang==="it")} onClick={()=>setLyricsLang("it")}>Italiano</button><button style={s.chip(lyricsLang==="en")} onClick={()=>setLyricsLang("en")}>Inglese</button></div></div>
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
 <RefUpload track={refTrack} onSet={setRefTrack} onClear={()=>setRefTrack(null)} s={s}/>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
