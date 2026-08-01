@@ -28,12 +28,6 @@ export default async function handler(req, res) {
     } catch {
       d = { code: r.status, msg: text || "Risposta non valida da kie.ai" };
     }
-    // DEBUG TEMPORANEO: logga la risposta completa quando la generazione
-    // termina, per capire perche' le tracce escono piu' corte del previsto.
-    // Da rimuovere dopo la diagnosi.
-    if (d?.data?.status === "SUCCESS" || d?.status === "SUCCESS") {
-      console.log("KIE_DEBUG_FULL_RESPONSE", JSON.stringify(d));
-    }
     return res.status(r.status).json(d);
   } catch (e) {
     return res.status(500).json({ error: e.message });
