@@ -240,7 +240,8 @@ try{
 const r=await fetch("https://kie-proxy-three.vercel.app/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
 const d=await r.json().catch(()=>({}));
 if(!r.ok||d.error){
-const msg=d.error||`Errore ${r.status} — riprova`;
+const raw=d.error;
+const msg=(typeof raw==="string"?raw:raw?.message)||`Errore ${r.status} — riprova`;
 if(mode==="titolo"){setGenStatus(`❌ ${msg}`);}else{setAiOut(`⚠ ${msg}`);}
 setAiLoad(false);return;
 }
