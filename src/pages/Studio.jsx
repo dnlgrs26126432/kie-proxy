@@ -276,7 +276,7 @@ const lyricsText=sections.map(s=>lyrics[s]?`[${s}]\n${lyrics[s]}`:"").filter(Boo
 const hasLyrics=lyricsText.length>0;
 const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, target length ${durLabel}`;
 const body={
-model:"V5",
+model:"V5_5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
@@ -284,6 +284,7 @@ style:stylePrompt.slice(0,1000),
 prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook.`,
 negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
+duration:duration,
 };
 try{
 const res=await fetch("/api/generate",{
