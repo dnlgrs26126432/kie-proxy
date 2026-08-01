@@ -23,6 +23,12 @@ export default async function handler(req, res) {
     `;
     // migrazione da versione precedente senza contatore testi AI
     await sql`alter table users add column if not exists ai_text_count integer not null default 0`;
+    // migrazione: blocco account dopo troppi login falliti
+    await sql`alter table users add column if not exists failed_login_count integer not null default 0`;
+    await sql`alter table users add column if not exists locked_until timestamptz`;
+    // migrazione: recupero password
+    await sql`alter table users add column if not exists reset_token_hash text`;
+    await sql`alter table users add column if not exists reset_token_expires timestamptz`;
 
     await sql`
       create table if not exists projects (

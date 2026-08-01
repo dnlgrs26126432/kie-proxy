@@ -87,6 +87,18 @@ export async function comparePassword(pw, hash) {
   return bcrypt.compare(pw, hash);
 }
 
+// Token di reset password: generato casualmente, mai salvato in chiaro nel DB
+// (solo il suo hash), scade dopo RESET_TOKEN_TTL_MIN minuti, uso singolo.
+export const RESET_TOKEN_TTL_MIN = 60;
+
+export function generateResetToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+export function hashResetToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 function currentMonthKey(d = new Date()) {
   return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
 }
