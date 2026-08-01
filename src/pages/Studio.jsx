@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
 
 const GENRES = ["Trap","Hip-Hop","Drill","Pop","R&B","House","Phonk","Soul","Afrobeat","Indie"];
 const MOODS  = ["Dark","Euphoric","Melancholic","Aggressive","Dreamy","Romantic","Mysterious","Cinematic"];
@@ -9,9 +10,13 @@ const SECS   = ["Intro","Verse 1","Pre-Chorus","Chorus","Verse 2","Bridge","Outr
 const BPM_DEF= {Trap:145,"Hip-Hop":95,Drill:140,Pop:118,House:128,Phonk:142,Soul:88,Afrobeat:104,Indie:114};
 const DURATIONS = [{v:30,l:"30s"},{v:60,l:"1 min"},{v:120,l:"2 min"},{v:180,l:"3 min"}];
 
-const CNT_KEY = "msp_gen_count";
-function loadCount(){ return parseInt(sessionStorage.getItem(CNT_KEY)||"0",10)||0; }
-function bumpCount(){ const n=loadCount()+1; sessionStorage.setItem(CNT_KEY,String(n)); return n; }
+// Rispecchia PLAN_LIMITS lato server (api/_auth.js), solo per mostrare
+// all'utente quante generazioni gli restano nel mese in corso.
+const CLIENT_PLAN_LIMITS = {
+free: { generationsPerMonth: 5, aiTextCallsPerMonth: 20 },
+pro: { generationsPerMonth: 50, aiTextCallsPerMonth: 300 },
+studio: { generationsPerMonth: 500, aiTextCallsPerMonth: 800 },
+};
 
 function getChords(key,scale){
 const N=["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
@@ -96,6 +101,7 @@ return(
 export default function Studio(){
 const params=useParams();
 const navigate=useNavigate();
+const { user, refresh } = useAuth();
 const routeId=params.id&&params.id!=="new"?params.id:null;
 
 const [projectId,setProjectId]=useState(routeId);
@@ -123,7 +129,11 @@ const [instrumental,setInstrumental]=useState(false);
 const [directorNotes,setDirectorNotes]=useState("");
 const [refTrack,setRefTrack]=useState(null);
 const [showPreview,setShowPreview]=useState(false);
-const [genCount,setGenCount]=useState(()=>loadCount());
+const planLimits=CLIENT_PLAN_LIMITS[user?.plan]||CLIENT_PLAN_LIMITS.free;
+const genUsed=user?.generation_count??0;
+const genLimit=planLimits.generationsPerMonth;
+const aiUsed=user?.ai_text_count??0;
+const aiLimit=planLimits.aiTextCallsPerMonth;
 const [aiOut,setAiOut]=useState("");
 const [aiLoad,setAiLoad]=useState(false);
 const [aiMode,setAiMode]=useState("");
@@ -236,7 +246,7 @@ if(t)setTitle(t);
 }else{
 setAiOut(text||"Nessuna risposta.");
 }
-setGenCount(bumpCount());
+refresh();
 }catch{setAiOut(mode==="titolo"?"":"⚠ Errore connessione.");}
 setAiLoad(false);
 };
@@ -258,11 +268,11 @@ const lyricsText=sections.map(s=>lyrics[s]?`[${s}]\n${lyrics[s]}`:"").filter(Boo
 const hasLyrics=lyricsText.length>0;
 const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, target length ${durLabel}`;
 const body={
-model:"V4",
+model:"V5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
-style:stylePrompt.slice(0,200),
+style:stylePrompt.slice(0,1000),
 prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook.`,
 negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
@@ -311,7 +321,7 @@ if(saved.length>0){
 setTracks(p=>[...saved,...p]);
 setGenStatus(`✓ ${saved.length} take pronte!`);
 setTab("tracks");setGenerating(false);
-setGenCount(bumpCount());
+refresh();
 }else{
 setGenStatus("❌ Audio generato ma non salvato — riprova");setGenerating(false);
 }
@@ -459,7 +469,8 @@ textarea{resize:vertical}
 <div style={{width:1,height:16,background:BR}}/>
 <span style={{color:V,fontWeight:600,fontSize:12}}>{genre}{customGenre?` +${customGenre}`:""} · <span style={{color:MU,fontWeight:400}}>{mood}</span></span>
 <div style={{width:1,height:16,background:BR}}/>
-<span style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}}>⚡ {genCount}</span>
+<span style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}} title="Generazioni audio usate questo mese">⚡ {genUsed}/{Number.isFinite(genLimit)?genLimit:"∞"}</span>
+<span style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}} title="Generazioni di testo AI usate questo mese">✦ {aiUsed}/{Number.isFinite(aiLimit)?aiLimit:"∞"}</span>
 {genStatus&&<span style={{fontSize:11,fontFamily:"'JetBrains Mono',monospace",color:genStatus.includes("✓")?M:genStatus.includes("❌")?"#FF5757":M,maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{genStatus}</span>}
 </div>
 <div style={{display:"flex",gap:8}}>
