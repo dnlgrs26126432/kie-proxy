@@ -313,15 +313,21 @@ setLyrics(nl);
 setGenStatus("⏳ Invio richiesta a kie.ai...");
 const wordCount=lyricsText.split(/\s+/).filter(Boolean).length;
 const lengthWarning=hasLyrics&&wordCount<duration*1.3?` Il testo fornito e' breve rispetto alla durata richiesta: estendi con sezioni strumentali (intro, bridge, assolo, outro) finche' non raggiungi ${durLabel} di durata totale, senza tagliare bruscamente.`:"";
-const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${lengthWarning}`;
+const vocalLangName=lyricsLang==="en"?"English":"Italian";
+// "Con voce" instructions: vocali reali/organiche, niente robotic/auto-tune, e lingua
+// esplicita per evitare che Suno canti in una lingua diversa da quella del testo.
+const vocalHints=instrumental?"":`, realistic human vocals, natural warm voice, live studio recording, organic mix, sung entirely in ${vocalLangName} — do not switch language`;
+const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${vocalHints}${lengthWarning}`;
 const body={
 model:"V5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${lyricsLang==="en"?"English":"Italian"} with a memorable hook, enough content for a full ${durLabel} song — do not end early.`,
-negativeTags:"Heavy Metal, Noise, Distortion",
+prompt:hasLyrics?(instrumental?lyricsText:`[Language: ${vocalLangName}]\n${lyricsText}`):`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`,
+negativeTags:"Heavy Metal, Noise, Distortion, robotic vocals, auto-tune, synthetic voice, artificial, low-fi",
+styleWeight:0.7,
+weirdnessConstraint:0.3,
 callBackUrl:"https://example.com/callback",
 };
 try{
