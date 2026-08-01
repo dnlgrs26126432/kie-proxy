@@ -276,9 +276,41 @@ let pid;
 try{ pid=await ensureProjectId(); }
 catch(e){ setGenStatus(`❌ ${e.message}`); setGenerating(false); return; }
 
+let lyricsText=sections.map(s=>lyrics[s]?`[${s}]\n${lyrics[s]}`:"").filter(Boolean).join("\n\n");
+let hasLyrics=lyricsText.length>0;
+
+// Se non ci sono testi scritti e il brano non e' strumentale, li generiamo
+// PRIMA con l'AI. Senza testi completi, kie.ai riceve solo una descrizione
+// breve e Suno improvvisa un testo minimo: e' questo che produce canzoni
+// molto piu' corte della durata richiesta, non una "divisione" tra le take.
+if(!hasLyrics&&!instrumental){
+setGenStatus("⏳ Scrivo i testi con AI...");
+const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
+const totalWords=Math.max(60,Math.round(duration*2));
+const langName=lyricsLang==="en"?"INGLESE":"ITALIANO";
+const lyricsPrompt=`Sei il ghostwriter più forte del genere ${genreFull}. Scrivi testi COMPLETI, in ${langName} (non in un'altra lingua), per ogni sezione:
+Titolo: "${title||"Untitled"}" | ${genreFull} | ${mood} | ${bpm} BPM | ${key} ${scale}
+Concept: "${concept||"tema emotivo universale"}" | E:${energy}% D:${darkness}%${refArtist?`\nIspirati anche a: ${refArtist}.`:""}${directorNotes?`\nNote di regia: ${directorNotes}.`:""}
+Struttura: ${sections.join(" → ")}
+LUNGHEZZA OBBLIGATORIA: la canzone deve durare ${durLabel} (${duration} secondi). Il testo COMPLETO di tutte le sezioni insieme deve avere ALMENO ${totalWords} parole (conta mentre scrivi, non fermarti prima). Circa ${linesPerSection} righe piene per ogni sezione, niente frasi vuote, ripetizioni pigre o segnaposto: un testo corto produce una canzone corta, quindi scrivi per intero.
+Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}, sempre in ${langName}.`;
+try{
+const lr=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:2000,messages:[{role:"user",content:lyricsPrompt}]})});
+const ld=await lr.json().catch(()=>({}));
+if(lr.ok&&!ld.error){
+const text=(ld.content?.filter(b=>b.type==="text").map(b=>b.text||"").join("")||"").trim();
+if(text){
+lyricsText=text;
+hasLyrics=true;
+const nl={...lyrics};let cur=null;
+text.split("\n").forEach(l=>{const m=sections.find(sec=>l.toUpperCase().includes(sec.toUpperCase()));if(m)cur=m;else if(cur&&l.trim())nl[cur]=(nl[cur]||"")+(nl[cur]?"\n":"")+l;});
+setLyrics(nl);
+}
+}
+}catch{ /* se la generazione testi fallisce, si prosegue col prompt breve */ }
+}
+
 setGenStatus("⏳ Invio richiesta a kie.ai...");
-const lyricsText=sections.map(s=>lyrics[s]?`[${s}]\n${lyrics[s]}`:"").filter(Boolean).join("\n\n");
-const hasLyrics=lyricsText.length>0;
 const wordCount=lyricsText.split(/\s+/).filter(Boolean).length;
 const lengthWarning=hasLyrics&&wordCount<duration*1.3?` Il testo fornito e' breve rispetto alla durata richiesta: estendi con sezioni strumentali (intro, bridge, assolo, outro) finche' non raggiungi ${durLabel} di durata totale, senza tagliare bruscamente.`:"";
 const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${lengthWarning}`;
