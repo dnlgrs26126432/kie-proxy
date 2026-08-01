@@ -320,14 +320,20 @@ const vocalLangName=lyricsLang==="en"?"English":"Italian";
 // "Con voce" instructions: vocali reali/organiche, niente robotic/auto-tune, e lingua
 // esplicita per evitare che Suno canti in una lingua diversa da quella del testo.
 const vocalHints=instrumental?"":`, realistic human vocals, natural warm voice, live studio recording, organic mix, sung entirely in ${vocalLangName} — do not switch language`;
-const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${vocalHints}${lengthWarning}`;
+// Traduce i valori della "consolle" (energia/dark 0-100) in descrittori piu'
+// graduati invece del semplice sopra/sotto 60%, cosi' Suno riceve un segnale
+// piu' fedele a quello che l'utente ha impostato negli slider.
+const energyDesc=energy>=85?"explosive high energy":energy>=60?"high energy":energy>=35?"moderate energy":"chill low energy";
+const darkDesc=darkness>=85?"very dark, ominous atmosphere":darkness>=60?"dark atmosphere":darkness>=35?"balanced atmosphere":"bright, uplifting atmosphere";
+const chordHint=ch.slice(0,4).join("-");
+const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, chord progression ${chordHint}, ${energyDesc}, ${darkDesc}${refArtist?`, sounds like ${refArtist}`:""}${directorNotes?`, ${directorNotes}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${vocalHints}${lengthWarning}`;
 const body={
 model:"V5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`,
+prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`,
 negativeTags:"Heavy Metal, Noise, Distortion, robotic vocals, auto-tune, synthetic voice, artificial, low-fi",
 styleWeight:0.7,
 weirdnessConstraint:0.3,
