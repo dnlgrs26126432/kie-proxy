@@ -237,17 +237,24 @@ mood:`Direttore creativo sonoro XO/Republic Italy. Mood "${mood}" nel ${genreFul
 titolo:`Genera SOLO un titolo di canzone (massimo 5 parole, senza virgolette, senza spiegazioni) per un brano ${genreFull}, mood ${mood}${concept?`, concept: "${concept}"`:""}. Rispondi solo col titolo.`,
 };
 try{
-const r=await fetch("https://kie-proxy-three.vercel.app/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
-const d=await r.json();
-const text=d.content?.map(b=>b.text||"").join("")||"";
+const r=await fetch("https://kie-proxy-three.vercel.app/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
+const d=await r.json().catch(()=>({}));
+if(!r.ok||d.error){
+const msg=d.error||`Errore ${r.status} — riprova`;
+if(mode==="titolo"){setGenStatus(`❌ ${msg}`);}else{setAiOut(`⚠ ${msg}`);}
+setAiLoad(false);return;
+}
+const text=d.content?.filter(b=>b.type==="text").map(b=>b.text||"").join("")||"";
 if(mode==="titolo"){
 const t=text.replace(/^["'“”]+|["'“”]+$/g,"").split("\n")[0].trim();
-if(t)setTitle(t);
+if(t)setTitle(t); else setGenStatus("❌ Titolo non generato — riprova");
 }else{
 setAiOut(text||"Nessuna risposta.");
 }
 refresh();
-}catch{setAiOut(mode==="titolo"?"":"⚠ Errore connessione.");}
+}catch{
+if(mode==="titolo"){setGenStatus("❌ Errore connessione");}else{setAiOut("⚠ Errore connessione.");}
+}
 setAiLoad(false);
 };
 
