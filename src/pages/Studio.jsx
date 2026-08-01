@@ -127,6 +127,7 @@ const [refArtist,setRefArtist]=useState("");
 const [duration,setDuration]=useState(120);
 const [instrumental,setInstrumental]=useState(false);
 const [lyricsLang,setLyricsLang]=useState("it");
+const [manualPrompt,setManualPrompt]=useState("");
 const [directorNotes,setDirectorNotes]=useState("");
 const [refTrack,setRefTrack]=useState(null);
 const [showPreview,setShowPreview]=useState(false);
@@ -326,7 +327,10 @@ const vocalHints=instrumental?"":`, realistic human vocals, natural warm voice, 
 const energyDesc=energy>=85?"explosive high energy":energy>=60?"high energy":energy>=35?"moderate energy":"chill low energy";
 const darkDesc=darkness>=85?"very dark, ominous atmosphere":darkness>=60?"dark atmosphere":darkness>=35?"balanced atmosphere":"bright, uplifting atmosphere";
 const chordHint=ch.slice(0,4).join("-");
-const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, chord progression ${chordHint}, ${energyDesc}, ${darkDesc}${refArtist?`, sounds like ${refArtist}`:""}${directorNotes?`, ${directorNotes}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${vocalHints}${lengthWarning}`;
+// Il prompt scritto a mano va in cima allo style: ha priorita' di lettura per
+// Suno ma non sostituisce gli altri campi della consolle, che restano come
+// completamento tecnico (BPM, tonalita', durata, lingua voce, ecc).
+const stylePrompt=`${manualPrompt.trim()?manualPrompt.trim()+", ":""}${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, chord progression ${chordHint}, ${energyDesc}, ${darkDesc}${refArtist?`, sounds like ${refArtist}`:""}${directorNotes?`, ${directorNotes}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${vocalHints}${lengthWarning}`;
 const body={
 model:"V5",
 customMode:true,
@@ -586,6 +590,11 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
 <RefUpload track={refTrack} onSet={setRefTrack} onClear={()=>setRefTrack(null)} s={s}/>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
+<div>
+<span style={s.lbl}>Prompt manuale <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:MU}}>(avanzato)</span></span>
+<textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12,fontFamily:"'JetBrains Mono',monospace"}} placeholder="Scrivi qui in inglese lo style/prompt esatto da mandare a Suno (es. 'dark trap, distorted 808, cinematic strings, whispered ad-libs')..." value={manualPrompt} onChange={e=>setManualPrompt(e.target.value)}/>
+<div style={{fontSize:10,color:MU,marginTop:5,lineHeight:1.5}}>Va in cima allo style inviato a kie.ai, prima di genere/mood/BPM/durata generati automaticamente. Non sovrascrive gli altri campi, li completa.</div>
+</div>
 </div>
 
 {/* MAIN */}
@@ -754,6 +763,7 @@ textarea{resize:vertical}
 ["Voce",instrumental?"Strumentale":"Con voce"],
 ["Riferimento artistico",refArtist||"—"],
 ["Note di regia",directorNotes||"—"],
+["Prompt manuale",manualPrompt||"—"],
 ["Traccia di riferimento",refTrack?.name||"—"],
 ].map(([l,v],i)=>(
 <div key={l} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"8px 12px",borderTop:i?`1px solid ${BR}`:"none",fontSize:12}}>
