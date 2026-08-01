@@ -237,7 +237,7 @@ mood:`Direttore creativo sonoro XO/Republic Italy. Mood "${mood}" nel ${genreFul
 titolo:`Genera SOLO un titolo di canzone (massimo 5 parole, senza virgolette, senza spiegazioni) per un brano ${genreFull}, mood ${mood}${concept?`, concept: "${concept}"`:""}. Rispondi solo col titolo.`,
 };
 try{
-const r=await fetch("https://kie-proxy-three.vercel.app/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
+const r=await fetch("/api/ai",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({model:"claude-sonnet-5",max_tokens:mode==="titolo"?30:1000,messages:[{role:"user",content:P[mode]}]})});
 const d=await r.json().catch(()=>({}));
 if(!r.ok||d.error){
 const raw=d.error;
@@ -286,7 +286,7 @@ negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
 };
 try{
-const res=await fetch("https://kie-proxy-three.vercel.app/api/generate",{
+const res=await fetch("/api/generate",{
 method:"POST",
 headers:{"Content-Type":"application/json"},
 credentials:"include",
@@ -305,7 +305,7 @@ let att=0;
 const poll=async()=>{
 if(att++>50){setGenStatus("⏱ Timeout — riprova tra poco");setGenerating(false);return;}
 try{
-const sr=await fetch(`https://kie-proxy-three.vercel.app/api/status?taskId=${taskId}`,{
+const sr=await fetch(`/api/status?taskId=${taskId}`,{
 credentials:"include"
 });
 const sd=await sr.json();
