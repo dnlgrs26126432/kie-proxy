@@ -10,7 +10,9 @@ export default async function handler(req, res) {
 
   try {
     const rows = await sql`
-      delete from users where email like 'test-%@example.com'
+      delete from users
+      where email like 'test-%@example.com'
+         or email = 'danilogirasole361+resendtest@gmail.com'
       returning email
     `;
     return res.status(200).json({ ok: true, removed: rows.map((r) => r.email) });
