@@ -339,7 +339,9 @@ refresh();
 setGenStatus("❌ Audio generato ma non salvato — riprova");setGenerating(false);
 }
 }else if(status==="CREATE_TASK_FAILED"||status==="GENERATE_AUDIO_FAILED"||status==="CALLBACK_EXCEPTION"||status==="SENSITIVE_WORD_ERROR"){
-setGenStatus("❌ Errore nella generazione — riprova");setGenerating(false);
+const detail=taskData?.errorMessage||taskData?.msg||taskData?.message;
+const reasons={SENSITIVE_WORD_ERROR:"parole non consentite nel testo — modifica il testo e riprova",CREATE_TASK_FAILED:"richiesta rifiutata da kie.ai",GENERATE_AUDIO_FAILED:"generazione audio fallita lato Suno",CALLBACK_EXCEPTION:"errore di callback"};
+setGenStatus(`❌ ${reasons[status]||status}${detail?` (${detail})`:""} — riprova`);setGenerating(false);
 }else{
 const pct=Math.min(att*2,88);
 setGenStatus(`⏳ ${pct}% — ${status||"elaborazione"}...`);
