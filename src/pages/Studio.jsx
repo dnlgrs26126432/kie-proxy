@@ -233,12 +233,15 @@ LUNGHEZZA OBBLIGATORIA: la canzone deve durare ${durLabel} (${duration} secondi)
 Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}, sempre in ${langName}.`,
 idee:`Sei l'A&R italiano più influente. 5 concept hit pronti, pensati per un brano di ${durLabel} (${duration}s):
 ${genreFull} | ${mood} | ${bpm} BPM | E${energy}% D${darkness}% | Seed: "${concept||"nessun limite"}"${refArtist?` | Suona come: ${refArtist}`:""}
-Per ognuno: 🎯 TITOLO · 📖 STORIA 2 righe · 🎤 HOOK 4 battute esatte · 🔗 DNA artista A x artista B · ⏱ come si sviluppa nei ${durLabel} (dove entra il hook, se regge senza ripetizioni forzate)`,
+Per ognuno: 🎯 TITOLO · 📖 STORIA 2 righe · 🎤 HOOK 4 battute esatte · 🔗 DNA artista A x artista B · ⏱ come si sviluppa nei ${durLabel} (dove entra il hook, se regge senza ripetizioni forzate)
+IMPORTANTE: rispondi sempre e solo in ITALIANO, anche quando citi artisti o riferimenti internazionali (i nomi propri restano invariati, il testo attorno è in italiano).`,
 produzione:`Sei Metro Boomin + Charlie Charles. Breakdown tecnica per un brano di ${durLabel} (${duration}s):
 ${genreFull} | ${mood} | ${bpm} BPM | ${key} ${scale} | Accordi: ${ch.slice(0,4).join("-")}${directorNotes?`\nNote di regia: ${directorNotes}.`:""}
-• DRUM PATTERN · • MELODIA synth · • 808/BASSLINE · • ATMOSFERA fx · • 3 ref italiane + 3 internazionali · • TIMELINE arrangiamento: come si riempiono i ${durLabel} tra le sezioni (intro, build, drop, outro) senza tirare via corto`,
+• DRUM PATTERN · • MELODIA synth · • 808/BASSLINE · • ATMOSFERA fx · • 3 ref italiane + 3 internazionali · • TIMELINE arrangiamento: come si riempiono i ${durLabel} tra le sezioni (intro, build, drop, outro) senza tirare via corto
+IMPORTANTE: rispondi sempre e solo in ITALIANO, anche nella sezione dei riferimenti internazionali (i nomi propri restano invariati, il testo attorno è in italiano).`,
 mood:`Direttore creativo sonoro XO/Republic Italy. Mood "${mood}" nel ${genreFull} | ${bpm} BPM | ${key} ${scale} | Durata target: ${durLabel} (${duration}s)
-• Palette sonora dettagliata · • Processing chain · • Mood board 7 immagini · • Come si evolve l'atmosfera lungo i ${durLabel} · • Come differenziarsi nel 2025`,
+• Palette sonora dettagliata · • Processing chain · • Mood board 7 immagini · • Come si evolve l'atmosfera lungo i ${durLabel} · • Come differenziarsi nel 2025
+IMPORTANTE: rispondi sempre e solo in ITALIANO.`,
 titolo:`Genera SOLO un titolo di canzone (massimo 5 parole, senza virgolette, senza spiegazioni) per un brano ${genreFull}, mood ${mood}${concept?`, concept: "${concept}"`:""}. Rispondi solo col titolo.`,
 };
 try{
