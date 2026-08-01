@@ -221,13 +221,14 @@ setSaving(false);
 const callAI=async(mode)=>{
 setAiLoad(true);setAiMode(mode);setAiOut("");
 const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
+const totalWords=Math.max(60,Math.round(duration*2));
 const P={
-testo:`Sei il ghostwriter italiano più forte. Scrivi testi COMPLETI per ogni sezione:
+testo:`Sei il ghostwriter italiano più forte. Scrivi testi COMPLETI, in ITALIANO (non in inglese), per ogni sezione:
 Titolo: "${title||"Untitled"}" | ${genreFull} | ${mood} | ${bpm} BPM | ${key} ${scale}
 Concept: "${concept||"tema emotivo universale"}" | E:${energy}% D:${darkness}%${refArtist?`\nIspirati anche a: ${refArtist}.`:""}${directorNotes?`\nNote di regia: ${directorNotes}.`:""}
 Struttura: ${sections.join(" → ")}
-Durata target: la canzone deve durare circa ${durLabel} (${duration} secondi) — scrivi testo abbastanza lungo da riempire TUTTA la durata: almeno ${linesPerSection} righe piene per ogni sezione (niente frasi vuote, ripetizioni pigre o segnaposto). Un testo troppo corto genera una canzone troppo corta.
-Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}.`,
+LUNGHEZZA OBBLIGATORIA: la canzone deve durare ${durLabel} (${duration} secondi). Il testo COMPLETO di tutte le sezioni insieme deve avere ALMENO ${totalWords} parole (conta mentre scrivi, non fermarti prima). Circa ${linesPerSection} righe piene per ogni sezione, niente frasi vuote, ripetizioni pigre o segnaposto: un testo corto produce una canzone corta, quindi scrivi per intero.
+Formato: [SEZIONE]\ntesto...\nCrea hook memorabili, rime interne, flow perfetto per ${genreFull}, sempre in italiano.`,
 idee:`Sei l'A&R italiano più influente. 5 concept hit pronti:
 ${genreFull} | ${mood} | ${bpm} BPM | E${energy}% D${darkness}% | Seed: "${concept||"nessun limite"}"${refArtist?` | Suona come: ${refArtist}`:""}
 Per ognuno: 🎯 TITOLO · 📖 STORIA 2 righe · 🎤 HOOK 4 battute esatte · 🔗 DNA artista A x artista B`,
@@ -280,7 +281,7 @@ const wordCount=lyricsText.split(/\s+/).filter(Boolean).length;
 const lengthWarning=hasLyrics&&wordCount<duration*1.3?` Il testo fornito e' breve rispetto alla durata richiesta: estendi con sezioni strumentali (intro, bridge, assolo, outro) finche' non raggiungi ${durLabel} di durata totale, senza tagliare bruscamente.`:"";
 const stylePrompt=`${genreFull}, ${mood}, ${bpm} BPM, ${key} ${scale}, ${energy>60?"high energy":"moderate energy"}, ${darkness>60?"dark":"bright"} atmosphere${refArtist?`, sounds like ${refArtist}`:""}, full song exactly ${durLabel} (${duration}s) long, do not fade out or end early${lengthWarning}`;
 const body={
-model:"V5_5",
+model:"V5",
 customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
@@ -288,7 +289,6 @@ style:stylePrompt.slice(0,1000),
 prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics with a memorable hook, enough content for a full ${durLabel} song — do not end early.`,
 negativeTags:"Heavy Metal, Noise, Distortion",
 callBackUrl:"https://example.com/callback",
-duration:duration,
 };
 try{
 const res=await fetch("/api/generate",{
