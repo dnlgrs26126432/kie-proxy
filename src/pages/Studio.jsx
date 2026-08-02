@@ -142,6 +142,7 @@ const [aiMode,setAiMode]=useState("");
 const [genStatus,setGenStatus]=useState("");
 const [generating,setGenerating]=useState(false);
 const [tracks,setTracks]=useState([]);
+const [wavState,setWavState]=useState({});
 
 const ch=getChords(key,scale);
 const toggle=s=>setSections(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s]);
@@ -378,7 +379,7 @@ const clip=clips[i];
 const url=clip?.audio_url||clip?.audioUrl||clip?.url;
 if(!url)continue;
 try{
-const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null})});
+const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null,kie_task_id:taskId,kie_audio_id:clip?.id||null})});
 const td=await tr.json();
 if(td.track)saved.push(td.track);
 }catch{ /* singola take non salvata, si continua con le altre */ }
@@ -411,6 +412,53 @@ const confirmGenerate=()=>{setShowPreview(false);generateMusic();};
 async function deleteTrack(id){
 setTracks(p=>p.filter(t=>t.id!==id));
 try{ await fetch(`/api/tracks?id=${id}`,{method:"DELETE"}); }catch{ /* rimosso lato client comunque */ }
+}
+
+// Converte un brano gia' generato in WAV (audio non compresso) tramite kie.ai.
+// Richiede kie_task_id/kie_audio_id salvati sul brano: i brani generati prima
+// di questa funzione non li hanno e vanno rigenerati per poter usare il WAV.
+async function convertToWav(track){
+if(!track.kie_task_id||!track.kie_audio_id){
+setWavState(p=>({...p,[track.id]:{status:"error",msg:"Brano generato prima dell'aggiornamento: rigeneralo per scaricare il WAV"}}));
+return;
+}
+setWavState(p=>({...p,[track.id]:{status:"loading",msg:"Avvio conversione..."}}));
+try{
+const r=await fetch("/api/wav",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({taskId:track.kie_task_id,audioId:track.kie_audio_id})});
+const d=await r.json().catch(()=>({}));
+if(!r.ok||d.error){
+setWavState(p=>({...p,[track.id]:{status:"error",msg:d.error||d.msg||"Errore avvio conversione"}}));
+return;
+}
+const wavTaskId=d?.data?.taskId||d?.taskId;
+if(!wavTaskId){
+setWavState(p=>({...p,[track.id]:{status:"error",msg:"Nessun taskId ricevuto"}}));
+return;
+}
+setWavState(p=>({...p,[track.id]:{status:"loading",msg:"Conversione in corso..."}}));
+let att=0;
+const poll=async()=>{
+if(att++>40){setWavState(p=>({...p,[track.id]:{status:"error",msg:"Timeout — riprova"}}));return;}
+try{
+const sr=await fetch(`/api/wav?taskId=${wavTaskId}`,{credentials:"include"});
+const sd=await sr.json();
+const data=sd?.data||sd;
+const flag=data?.successFlag||data?.status;
+if(flag==="SUCCESS"){
+const url=data?.response?.audioWavUrl;
+if(url){setWavState(p=>({...p,[track.id]:{status:"ready",url}}));}
+else{setWavState(p=>({...p,[track.id]:{status:"error",msg:"WAV pronto ma senza URL"}}));}
+}else if(flag==="CREATE_TASK_FAILED"||flag==="GENERATE_WAV_FAILED"||flag==="CALLBACK_EXCEPTION"){
+setWavState(p=>({...p,[track.id]:{status:"error",msg:data?.errorMessage||flag}}));
+}else{
+setTimeout(poll,3000);
+}
+}catch{setTimeout(poll,4000);}
+};
+setTimeout(poll,4000);
+}catch(e){
+setWavState(p=>({...p,[track.id]:{status:"error",msg:e.message}}));
+}
 }
 
 // Export PDF scheda tecnica
@@ -727,8 +775,16 @@ textarea{resize:vertical}
 </div>
 </div>
 <audio src={t.audio_url||t.url} controls style={{width:"100%",height:36,borderRadius:8}}/>
-<div style={{marginTop:10}}>
+<div style={{marginTop:10,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
 <a href={t.audio_url||t.url} download={`${t.title||"track"}.mp3`} style={{...s.btn("g"),textDecoration:"none",width:"fit-content",padding:"7px 14px",fontSize:12}}>↓ Download MP3</a>
+{wavState[t.id]?.status==="ready"?(
+<a href={wavState[t.id].url} download={`${t.title||"track"}.wav`} style={{...s.btn("m"),textDecoration:"none",width:"fit-content",padding:"7px 14px",fontSize:12}}>↓ Download WAV</a>
+):wavState[t.id]?.status==="loading"?(
+<span style={{fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}}>⏳ {wavState[t.id].msg}</span>
+):(
+<button onClick={()=>convertToWav(t)} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎚 Converti in WAV</button>
+)}
+{wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
 </div>
 </div>
 ))}
