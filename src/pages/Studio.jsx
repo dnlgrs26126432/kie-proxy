@@ -60,43 +60,6 @@ return()=>clearInterval(id);
 return <div style={{width:8,height:8,borderRadius:"50%",background:on?"#00D4AA":"#1E2A28",boxShadow:on?"0 0 8px #00D4AA":"none",transition:"all 0.06s"}}/>;
 }
 
-function RefUpload({track,onSet,onClear,s}){
-const inputRef=useRef(null);
-const [err,setErr]=useState("");
-function handleFile(e){
-const f=e.target.files?.[0];
-if(!f)return;
-const ok=/\.(mp3|wav)$/i.test(f.name)||["audio/mpeg","audio/wav","audio/x-wav"].includes(f.type);
-if(!ok){setErr("Formato non supportato: usa MP3 o WAV.");return;}
-setErr("");
-const url=URL.createObjectURL(f);
-const a=new Audio(url);
-a.onloadedmetadata=()=>onSet({url,name:f.name,duration:a.duration,size:f.size});
-}
-return(
-<div>
-<span style={s.lbl}>Traccia di riferimento</span>
-{!track?(
-<>
-<input ref={inputRef} type="file" accept=".mp3,.wav,audio/mpeg,audio/wav,audio/x-wav" style={{display:"none"}} onChange={handleFile}/>
-<button style={{...s.btn("g"),width:"100%",padding:"9px"}} onClick={()=>inputRef.current?.click()}>↑ Carica MP3/WAV</button>
-{err&&<div style={{fontSize:10,color:"#FF5757",marginTop:5}}>{err}</div>}
-</>
-):(
-<div style={{background:"#161628",border:"1px solid #252540",borderRadius:8,padding:10}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,gap:8}}>
-<span style={{fontSize:11,color:"#F0F0FF",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{track.name}</span>
-<button style={{background:"none",border:"none",color:"#5A5A80",cursor:"pointer",fontSize:13,flexShrink:0}} onClick={onClear} aria-label="Elimina traccia">✕</button>
-</div>
-<audio src={track.url} controls style={{width:"100%",height:28}}/>
-<div style={{fontSize:9,color:"#5A5A80",marginTop:4,fontFamily:"'JetBrains Mono',monospace"}}>
-{Number.isFinite(track.duration)?`${Math.floor(track.duration/60)}:${String(Math.round(track.duration%60)).padStart(2,"0")}`:"--:--"}
-</div>
-</div>
-)}
-</div>
-);
-}
 
 export default function Studio(){
 const params=useParams();
@@ -129,7 +92,6 @@ const [instrumental,setInstrumental]=useState(false);
 const [lyricsLang,setLyricsLang]=useState("it");
 const [manualPrompt,setManualPrompt]=useState("");
 const [directorNotes,setDirectorNotes]=useState("");
-const [refTrack,setRefTrack]=useState(null);
 const [showPreview,setShowPreview]=useState(false);
 const planLimits=CLIENT_PLAN_LIMITS[user?.plan]||CLIENT_PLAN_LIMITS.free;
 const genUsed=user?.generation_count??0;
@@ -535,7 +497,7 @@ setTimeout(()=>URL.revokeObjectURL(url),1000);
 
 const s={
 inp:{background:SF,border:`1px solid ${BR}`,borderRadius:8,color:TX,fontFamily:"Inter,sans-serif",fontSize:13,padding:"9px 12px",outline:"none",width:"100%"},
-lbl:{fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:MU,textTransform:"uppercase",display:"block",marginBottom:8},
+lbl:{fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:TX,textTransform:"uppercase",display:"block",marginBottom:8},
 card:(g=false)=>({background:CD,border:`1px solid ${g?V+"55":BR}`,borderRadius:12,padding:16,...(g?{boxShadow:`0 0 20px ${V}11`}:{})}),
 chip:(on,c=V)=>({padding:"5px 11px",borderRadius:6,border:`1px solid ${on?c:BR}`,background:on?c+"18":"transparent",color:on?c:MU,cursor:"pointer",fontSize:11,fontWeight:on?600:400,fontFamily:"Inter,sans-serif",transition:"all 0.12s"}),
 btn:(v="p",full=false)=>{
@@ -636,7 +598,6 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div></div>
 <div><span style={s.lbl}>Lingua testo</span><div style={{display:"flex",gap:4}}><button style={s.chip(lyricsLang==="it")} onClick={()=>setLyricsLang("it")}>Italiano</button><button style={s.chip(lyricsLang==="en")} onClick={()=>setLyricsLang("en")}>Inglese</button></div></div>
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
-<RefUpload track={refTrack} onSet={setRefTrack} onClear={()=>setRefTrack(null)} s={s}/>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
 <div>
 <span style={s.lbl}>Prompt manuale <span style={{textTransform:"none",letterSpacing:0,fontWeight:400,color:MU}}>(avanzato)</span></span>
@@ -820,7 +781,6 @@ textarea{resize:vertical}
 ["Riferimento artistico",refArtist||"—"],
 ["Note di regia",directorNotes||"—"],
 ["Prompt manuale",manualPrompt||"—"],
-["Traccia di riferimento",refTrack?.name||"—"],
 ].map(([l,v],i)=>(
 <div key={l} style={{display:"flex",justifyContent:"space-between",gap:10,padding:"8px 12px",borderTop:i?`1px solid ${BR}`:"none",fontSize:12}}>
 <span style={{color:MU,fontWeight:700,textTransform:"uppercase",fontSize:10,letterSpacing:"0.5px",flexShrink:0}}>{l}</span>
