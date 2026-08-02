@@ -499,7 +499,7 @@ const s={
 inp:{background:SF,border:`1px solid ${BR}`,borderRadius:8,color:TX,fontFamily:"Inter,sans-serif",fontSize:13,padding:"9px 12px",outline:"none",width:"100%"},
 lbl:{fontSize:10,fontWeight:700,letterSpacing:"1.5px",color:TX,textTransform:"uppercase",display:"block",marginBottom:8},
 card:(g=false)=>({background:CD,border:`1px solid ${g?V+"55":BR}`,borderRadius:12,padding:16,...(g?{boxShadow:`0 0 20px ${V}11`}:{})}),
-chip:(on,c=V)=>({padding:"5px 11px",borderRadius:6,border:`1px solid ${on?c:BR}`,background:on?c+"18":"transparent",color:on?c:MU,cursor:"pointer",fontSize:11,fontWeight:on?600:400,fontFamily:"Inter,sans-serif",transition:"all 0.12s"}),
+chip:(on,c=V)=>({padding:"5px 11px",borderRadius:6,border:`1px solid ${on?c:BR}`,background:on?c+"18":"transparent",color:on?c:TX,cursor:"pointer",fontSize:11,fontWeight:on?600:400,fontFamily:"Inter,sans-serif",transition:"all 0.12s"}),
 btn:(v="p",full=false)=>{
 const b={border:"none",borderRadius:8,cursor:"pointer",fontFamily:"Inter,sans-serif",fontWeight:700,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",gap:7,transition:"all 0.15s",...(full?{width:"100%",padding:"12px"}:{padding:"10px 16px"})};
 if(v==="p")return{...b,background:`linear-gradient(135deg,${V},#9B6BFF)`,color:"#fff"};
@@ -610,7 +610,7 @@ textarea{resize:vertical}
 <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
 <div style={{display:"flex",background:SF,borderBottom:`1px solid ${BR}`,flexShrink:0}}>
 {[["progetto","◈ Progetto"],["testi","✍ Testi"],["ai","✦ AI Studio"],["tracks","▶ Brani"]].map(([id,l])=>(
-<button key={id} onClick={()=>setTab(id)} style={{padding:"12px 18px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"Inter,sans-serif",fontSize:12,fontWeight:tab===id?700:500,color:tab===id?TX:MU,borderBottom:tab===id?`2px solid ${V}`:"2px solid transparent",transition:"all 0.15s"}}>
+<button key={id} onClick={()=>setTab(id)} style={{padding:"12px 18px",background:"transparent",border:"none",cursor:"pointer",fontFamily:"Inter,sans-serif",fontSize:12,fontWeight:tab===id?700:500,color:TX,borderBottom:tab===id?`2px solid ${V}`:"2px solid transparent",transition:"all 0.15s"}}>
 {l}{id==="tracks"&&tracks.length>0&&<span style={{marginLeft:5,background:V,color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:10}}>{tracks.length}</span>}
 </button>
 ))}
@@ -622,7 +622,7 @@ textarea{resize:vertical}
 <div style={s.card(true)}>
 <span style={s.lbl}>Struttura brano</span>
 <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:7,marginBottom:14}}>
-{SECS.map(sec=><button key={sec} onClick={()=>toggle(sec)} style={{padding:"9px 6px",border:`1px solid ${sections.includes(sec)?V:BR}`,borderRadius:8,background:sections.includes(sec)?V+"18":SF,color:sections.includes(sec)?V:MU,cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"Inter,sans-serif",transition:"all 0.12s",textAlign:"center"}}>{sec}</button>)}
+{SECS.map(sec=><button key={sec} onClick={()=>toggle(sec)} style={{padding:"9px 6px",border:`1px solid ${sections.includes(sec)?V:BR}`,borderRadius:8,background:sections.includes(sec)?V+"18":SF,color:sections.includes(sec)?V:TX,cursor:"pointer",fontSize:11,fontWeight:600,fontFamily:"Inter,sans-serif",transition:"all 0.12s",textAlign:"center"}}>{sec}</button>)}
 </div>
 <span style={s.lbl}>Flow <span style={{textTransform:"none",letterSpacing:0,fontWeight:400}}>(usa le frecce per riordinare)</span></span>
 <div style={{display:"flex",flexWrap:"wrap",gap:6,alignItems:"center",padding:"10px 12px",background:SF,borderRadius:8,border:`1px solid ${BR}`}}>
