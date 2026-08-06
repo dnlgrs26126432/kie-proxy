@@ -84,6 +84,7 @@ export default async function handler(req, res) {
     }
 
     const kieData = await kieRes.json();
+    console.log("[regenerate-overlay] risposta completa kie.ai:", JSON.stringify(kieData)); // DEBUG temporaneo
     const taskId = kieData?.data?.taskId || kieData?.taskId;
     if (!taskId) return res.status(502).json({ error: "kie.ai non ha restituito un taskId valido" });
 
