@@ -73,6 +73,28 @@ export default async function handler(req, res) {
     await sql`create index if not exists idx_projects_updated_at on projects(updated_at desc)`;
     await sql`create index if not exists idx_projects_user_id on projects(user_id)`;
 
+    await sql`
+      create table if not exists overlays (
+        id uuid primary key default gen_random_uuid(),
+        track_id uuid not null references tracks(id) on delete cascade,
+        project_id uuid not null references projects(id) on delete cascade,
+        overlay_type text not null default 'voice'
+          check (overlay_type in ('voice', 'effect', 'instrument')),
+        raw_audio_url text not null,
+        mixed_audio_url text,
+        regenerated_audio_url text,
+        regeneration_task_id text,
+        regeneration_mode text check (regeneration_mode in ('extend', 'cover', 'add_vocals')),
+        regeneration_status text not null default 'none'
+          check (regeneration_status in ('none', 'pending', 'completed', 'failed')),
+        regeneration_params jsonb,
+        regeneration_error text,
+        created_at timestamptz not null default now()
+      )
+    `;
+    await sql`create index if not exists idx_overlays_track_id on overlays(track_id)`;
+    await sql`create index if not exists idx_overlays_project_id on overlays(project_id)`;
+
     return res.status(200).json({ ok: true, message: "Schema creato/aggiornato." });
   } catch (e) {
     return res.status(500).json({ error: e.message });

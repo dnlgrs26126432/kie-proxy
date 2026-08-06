@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import OverlayRecorder from "../components/OverlayRecorder.jsx";
 
 const GENRES = ["Trap","Hip-Hop","Drill","Pop","R&B","House","Phonk","Soul","Afrobeat","Indie"];
 const MOODS  = ["Dark","Euphoric","Melancholic","Aggressive","Dreamy","Romantic","Mysterious","Cinematic"];
@@ -747,6 +748,7 @@ textarea{resize:vertical}
 )}
 {wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
 </div>
+{t.id&&<OverlayRecorder trackId={t.id} baseAudioUrl={t.audio_url||t.url}/>}
 </div>
 ))}
 </>}
