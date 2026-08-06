@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { upload } from "@vercel/blob/client";
 
 // Stessi accenti cromatici della consolle (teal/viola), non i lime di consolle-1
 const COLORS = {
@@ -9,15 +10,6 @@ const COLORS = {
   textDim: "#5A5A80",
 };
 
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result.split(",")[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 /**
  * OverlayRecorder
  * Flusso: registra voce/effetti in sincrono con un track gia' generato ->
@@ -27,8 +19,10 @@ function blobToBase64(blob) {
  * performance reale invece di ignorarla generando voce da zero.
  *
  * A differenza della versione consolle-1: nessun client Supabase, upload
- * via /api/overlays (Blob caricato server-side), polling su /api/status
- * gia' esistente (nessun endpoint di callback).
+ * diretto client-to-blob via @vercel/blob/client (token firmato da
+ * api/overlay-upload-token.js) per non sbattere contro il limite di body
+ * delle funzioni serverless su file grandi, poi solo l'URL risultante va a
+ * /api/overlays. Polling su /api/status gia' esistente (nessun callback).
  *
  * Props:
  *  - trackId: id del track (tabella tracks) da sovrapporre
@@ -84,13 +78,18 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
 
     try {
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-      const audioBase64 = await blobToBase64(blob);
+
+      const uploaded = await upload(`overlays/raw-${trackId}-${Date.now()}.webm`, blob, {
+        access: "public",
+        handleUploadUrl: "/api/overlay-upload-token",
+        clientPayload: JSON.stringify({ kind: "raw", trackId }),
+      });
 
       const res = await fetch("/api/overlays", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trackId, audioBase64, contentType: "audio/webm", overlayType: "voice" }),
+        body: JSON.stringify({ trackId, audioUrl: uploaded.url, overlayType: "voice" }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -138,13 +137,18 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
 
       const mixedBuffer = await offlineCtx.startRendering();
       const wavBlob = audioBufferToWav(mixedBuffer);
-      const mixedAudioBase64 = await blobToBase64(wavBlob);
+
+      const uploaded = await upload(`overlays/mixed-${overlay.id}-${Date.now()}.wav`, wavBlob, {
+        access: "public",
+        handleUploadUrl: "/api/overlay-upload-token",
+        clientPayload: JSON.stringify({ kind: "mixed", overlayId: overlay.id }),
+      });
 
       const res = await fetch(`/api/overlays?id=${overlay.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mixedAudioBase64, contentType: "audio/wav" }),
+        body: JSON.stringify({ mixedAudioUrl: uploaded.url }),
       });
       const data = await res.json();
       if (!res.ok) {
