@@ -77,10 +77,17 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     await new Promise((resolve) => setTimeout(resolve, 300));
 
     try {
+      // Il type forzato qui non basta da solo: alcuni browser (visto su
+      // Windows) riportano "video/webm" dal MediaRecorder anche per una
+      // registrazione solo audio, e senza un contentType esplicito passato
+      // a upload() sotto, quel valore ambiguo puo' propagarsi fino allo
+      // storage (l'estensione .webm da sola mappa di default a video/webm
+      // nei database MIME standard).
       const blob = new Blob(chunksRef.current, { type: "audio/webm" });
 
       const uploaded = await upload(`overlays/raw-${trackId}-${Date.now()}.webm`, blob, {
         access: "public",
+        contentType: "audio/webm",
         handleUploadUrl: "/api/overlay-upload-token",
         clientPayload: JSON.stringify({ kind: "raw", trackId }),
       });
@@ -140,6 +147,7 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
 
       const uploaded = await upload(`overlays/mixed-${overlay.id}-${Date.now()}.wav`, wavBlob, {
         access: "public",
+        contentType: "audio/wav",
         handleUploadUrl: "/api/overlay-upload-token",
         clientPayload: JSON.stringify({ kind: "mixed", overlayId: overlay.id }),
       });
