@@ -117,6 +117,19 @@ export default async function handler(req, res) {
       where id = ${overlayId}
     `;
 
+    // DEBUG temporaneo: interroga subito lo stato del task appena creato
+    // (stessa chiamata di /api/status) per vedere lo stato iniziale senza
+    // dover cercare il taskId nel Network tab del browser.
+    try {
+      const statusRes = await fetch(`https://api.kie.ai/api/v1/generate/record-info?taskId=${taskId}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      const statusText = await statusRes.text();
+      console.log(`[regenerate-overlay] taskId=${taskId} stato iniziale:`, statusText);
+    } catch (statusErr) {
+      console.log(`[regenerate-overlay] taskId=${taskId} — errore nel controllo di stato immediato:`, statusErr.message);
+    }
+
     return res.status(200).json({ taskId });
   } catch (e) {
     return res.status(500).json({ error: e.message });
