@@ -76,6 +76,8 @@ export default async function handler(req, res) {
       ...(mode === "cover" ? { customMode: true, instrumental: false } : {}),
     };
 
+    console.log("[regenerate-overlay] payload esatto mandato a kie.ai:", JSON.stringify(payload)); // DEBUG temporaneo
+
     const kieRes = await fetch(`https://api.kie.ai${ENDPOINT_BY_MODE[mode]}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
