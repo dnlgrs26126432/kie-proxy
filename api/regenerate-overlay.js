@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     }
 
     const rows = await sql`
-      select o.*, p.genre, p.custom_genre, p.mood, p.bpm, p.key_signature, p.scale, p.title as project_title
+      select o.*, p.genre, p.custom_genre, p.mood, p.bpm, p.key_signature, p.scale, p.title as project_title, p.sections, p.lyrics, p.concept
       from overlays o
       join projects p on p.id = o.project_id
       where o.id = ${overlayId} and p.user_id = ${user.id}
@@ -63,11 +63,28 @@ export default async function handler(req, res) {
     const genreText = [overlay.genre, overlay.custom_genre].filter(Boolean).join(", ");
     const style = `${genreText}, ${overlay.mood}, ${overlay.bpm} BPM, ${overlay.key_signature} ${overlay.scale}`.slice(0, 200);
 
+    // Obbligatorio per kie.ai quando instrumental e' false (422 "extending
+    // lyrics are empty" altrimenti) — in customMode:true viene usato come
+    // testo cantato esatto, non come suggerimento. Stessa fonte e stessa
+    // logica di Studio.jsx per la generazione base: il testo scritto per
+    // sezione nel progetto, o un prompt descrittivo generico come fallback
+    // se il progetto e' strumentale o non ha mai avuto testo.
+    const sections = overlay.sections || [];
+    const lyricsObj = overlay.lyrics || {};
+    const lyricsText = sections
+      .map((s) => (lyricsObj[s] ? `[${s}]\n${lyricsObj[s]}` : ""))
+      .filter(Boolean)
+      .join("\n\n");
+    const prompt =
+      lyricsText ||
+      `${genreText} ${overlay.mood} song about ${overlay.concept || "emotions and life"}. ${overlay.bpm} BPM, ${overlay.key_signature} ${overlay.scale}. Write powerful lyrics with a memorable hook.`;
+
     const payload = {
       uploadUrl: sourceUrl,
       model: "V4",
       style,
       title: overlay.project_title,
+      prompt,
       // Obbligatorio per kie.ai (422 "Please enter callBackUrl" altrimenti),
       // ma mai realmente raggiunto: come nel resto di kie-proxy, non
       // esistono callback implementati, tutto e' polling su /api/status.
@@ -75,8 +92,6 @@ export default async function handler(req, res) {
       ...(mode === "extend" ? { continueAt: 0, instrumental: false } : {}),
       ...(mode === "cover" ? { customMode: true, instrumental: false } : {}),
     };
-
-    console.log("[regenerate-overlay] payload esatto mandato a kie.ai:", JSON.stringify(payload)); // DEBUG temporaneo
 
     const kieRes = await fetch(`https://api.kie.ai${ENDPOINT_BY_MODE[mode]}`, {
       method: "POST",
