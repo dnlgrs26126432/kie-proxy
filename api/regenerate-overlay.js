@@ -68,6 +68,10 @@ export default async function handler(req, res) {
       model: "V4",
       style,
       title: overlay.project_title,
+      // Obbligatorio per kie.ai (422 "Please enter callBackUrl" altrimenti),
+      // ma mai realmente raggiunto: come nel resto di kie-proxy, non
+      // esistono callback implementati, tutto e' polling su /api/status.
+      callBackUrl: "https://example.com/callback",
       ...(mode === "extend" ? { continueAt: 0, instrumental: false } : {}),
       ...(mode === "cover" ? { customMode: true, instrumental: false } : {}),
     };
@@ -84,7 +88,6 @@ export default async function handler(req, res) {
     }
 
     const kieData = await kieRes.json();
-    console.log("[regenerate-overlay] risposta completa kie.ai:", JSON.stringify(kieData)); // DEBUG temporaneo
     const taskId = kieData?.data?.taskId || kieData?.taskId;
     if (!taskId) return res.status(502).json({ error: "kie.ai non ha restituito un taskId valido" });
 
