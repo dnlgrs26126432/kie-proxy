@@ -43,8 +43,8 @@ export default async function handler(req, res) {
       });
 
       const rows = await sql`
-        insert into tracks (project_id, title, audio_url, source_url, take_index, duration_seconds, kie_task_id, kie_audio_id)
-        values (${b.project_id}, ${b.title || "Track"}, ${blob.url}, ${b.source_url}, ${b.take_index ?? 0}, ${b.duration_seconds || null}, ${b.kie_task_id || null}, ${b.kie_audio_id || null})
+        insert into tracks (project_id, title, audio_url, source_url, take_index, duration_seconds, kie_task_id, kie_audio_id, generation_params)
+        values (${b.project_id}, ${b.title || "Track"}, ${blob.url}, ${b.source_url}, ${b.take_index ?? 0}, ${b.duration_seconds || null}, ${b.kie_task_id || null}, ${b.kie_audio_id || null}, ${b.generation_params ? JSON.stringify(b.generation_params) : null})
         returning *
       `;
       await sql`update users set generation_count = coalesce(generation_count, 0) + 1 where id = ${user.id}`;

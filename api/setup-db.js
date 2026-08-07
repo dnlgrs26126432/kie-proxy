@@ -69,6 +69,11 @@ export default async function handler(req, res) {
       )
     `;
 
+    // migrazione: payload esatto mandato a kie.ai per generare questa take
+    // (prompt/style/model risolti), cosi' una rigenerazione overlay successiva
+    // non deve ricostruirlo da projects (che nel frattempo puo' essere cambiato)
+    await sql`alter table tracks add column if not exists generation_params jsonb`;
+
     await sql`create index if not exists idx_tracks_project_id on tracks(project_id)`;
     await sql`create index if not exists idx_projects_updated_at on projects(updated_at desc)`;
     await sql`create index if not exists idx_projects_user_id on projects(user_id)`;

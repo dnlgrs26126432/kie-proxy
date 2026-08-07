@@ -342,7 +342,7 @@ const clip=clips[i];
 const url=clip?.audio_url||clip?.audioUrl||clip?.url;
 if(!url)continue;
 try{
-const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null,kie_task_id:taskId,kie_audio_id:clip?.id||null})});
+const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null,kie_task_id:taskId,kie_audio_id:clip?.id||null,generation_params:body})});
 const td=await tr.json();
 if(td.track)saved.push(td.track);
 }catch{ /* singola take non salvata, si continua con le altre */ }

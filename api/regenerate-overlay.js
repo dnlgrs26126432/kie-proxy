@@ -7,9 +7,11 @@ import { getUserFromRequest, PLAN_LIMITS, checkMonthlyLimit } from "./_auth.js";
 // polling su /api/status?taskId=... gia' esistente, poi salva l'esito con
 // PATCH /api/overlays?id=...
 //
-// A differenza di consolle-1 (dove ogni audio_version salva i propri
-// generation_params), qui non esiste uno snapshot per take: lo stile per la
-// rigenerazione viene preso direttamente dal progetto (genre/mood/bpm/...).
+// prompt/style/model vengono letti da tracks.generation_params — lo
+// snapshot esatto del payload usato per generare quella take (salvato da
+// api/tracks.js al momento della generazione), non ricostruiti al volo dal
+// progetto: quest'ultimo puo' essere cambiato nel frattempo, ma la take
+// gia' generata deve restare coerente con cio' che l'ha davvero prodotta.
 const ENDPOINT_BY_MODE = {
   extend: "/api/v1/generate/upload-extend",
   cover: "/api/v1/generate/upload-cover",
@@ -42,9 +44,10 @@ export default async function handler(req, res) {
     }
 
     const rows = await sql`
-      select o.*, p.genre, p.custom_genre, p.mood, p.bpm, p.key_signature, p.scale, p.title as project_title, p.sections, p.lyrics, p.concept
+      select o.*, p.title as project_title, t.generation_params
       from overlays o
       join projects p on p.id = o.project_id
+      join tracks t on t.id = o.track_id
       where o.id = ${overlayId} and p.user_id = ${user.id}
     `;
     const overlay = rows[0];
@@ -60,28 +63,21 @@ export default async function handler(req, res) {
     const apiKey = process.env.KIE_API_KEY;
     if (!apiKey) return res.status(500).json({ error: "KIE_API_KEY non configurata sul server" });
 
-    const genreText = [overlay.genre, overlay.custom_genre].filter(Boolean).join(", ");
-    const style = `${genreText}, ${overlay.mood}, ${overlay.bpm} BPM, ${overlay.key_signature} ${overlay.scale}`.slice(0, 200);
-
-    // Obbligatorio per kie.ai quando instrumental e' false (422 "extending
-    // lyrics are empty" altrimenti) — in customMode:true viene usato come
-    // testo cantato esatto, non come suggerimento. Stessa fonte e stessa
-    // logica di Studio.jsx per la generazione base: il testo scritto per
-    // sezione nel progetto, o un prompt descrittivo generico come fallback
-    // se il progetto e' strumentale o non ha mai avuto testo.
-    const sections = overlay.sections || [];
-    const lyricsObj = overlay.lyrics || {};
-    const lyricsText = sections
-      .map((s) => (lyricsObj[s] ? `[${s}]\n${lyricsObj[s]}` : ""))
-      .filter(Boolean)
-      .join("\n\n");
-    const prompt =
-      lyricsText ||
-      `${genreText} ${overlay.mood} song about ${overlay.concept || "emotions and life"}. ${overlay.bpm} BPM, ${overlay.key_signature} ${overlay.scale}. Write powerful lyrics with a memorable hook.`;
+    // Niente fallback: se manca, la take e' stata generata prima che
+    // salvassimo generation_params e non c'e' un prompt storico affidabile
+    // da riusare (ricostruirlo da projects.lyrics rompeva silenziosamente
+    // quando il progetto era cambiato o strumentale — vedi il bug su
+    // "Cuore in Fiamme").
+    if (!overlay.generation_params || !overlay.generation_params.prompt) {
+      return res.status(400).json({
+        error: "Questa take è stata generata prima che salvassimo i parametri completi — genera una nuova take per usare l'overlay recorder.",
+      });
+    }
+    const { prompt, style, model } = overlay.generation_params;
 
     const payload = {
       uploadUrl: sourceUrl,
-      model: "V4",
+      model,
       style,
       title: overlay.project_title,
       prompt,
