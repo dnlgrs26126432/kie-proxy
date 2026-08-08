@@ -1,7 +1,7 @@
 import { handleUpload } from "@vercel/blob/client";
 import { sql, cors } from "./_db.js";
 import { getUserFromRequest } from "./_auth.js";
-import { loadOwnedTrack, loadOwnedOverlay } from "./_overlays.js";
+import { loadOwnedTrack } from "./_overlays.js";
 
 // POST /api/overlay-upload-token -> genera un token firmato per l'upload
 // client-to-blob (@vercel/blob/client). Evita di far passare l'audio (che
@@ -35,12 +35,12 @@ export default async function handler(req, res) {
           throw new Error("clientPayload non valido");
         }
 
-        if (payload.kind === "raw") {
+        if (payload.kind === "raw" || payload.kind === "mixed") {
+          // "raw" = un singolo layer registrato/caricato; "mixed" = il mix
+          // finale multi-traccia (base + tutti i layer). Entrambi vivono
+          // sotto lo stesso track, quindi stessa verifica di ownership.
           const owned = await loadOwnedTrack(sql, payload.trackId, user.id);
           if (!owned) throw new Error("Track non trovato");
-        } else if (payload.kind === "mixed") {
-          const owned = await loadOwnedOverlay(sql, payload.overlayId, user.id);
-          if (!owned) throw new Error("Overlay non trovato");
         } else {
           throw new Error("clientPayload.kind non riconosciuto");
         }

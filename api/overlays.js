@@ -1,22 +1,22 @@
+import { del } from "@vercel/blob";
 import { sql, cors } from "./_db.js";
 import { getUserFromRequest } from "./_auth.js";
 import { loadOwnedTrack, loadOwnedOverlay } from "./_overlays.js";
 
-// GET   /api/overlays?trackId=... -> ultimo overlay salvato per quel track
-//                               (se esiste). Serve al client per ricostruire
-//                               lo stato al mount/refresh invece di ripartire
-//                               sempre da "idle" ignorando quanto gia' salvato
-//                               (registrazione/mix/rigenerazione in corso).
-// POST  /api/overlays        -> registra un overlay (voce/effetto) sopra un
-//                               track gia' generato. L'audio e' gia' stato
-//                               caricato su Vercel Blob dal client (upload
+// GET    /api/overlays?trackId=... -> tutti i layer (registrazioni/upload)
+//                               salvati per quel track, in ordine di
+//                               creazione. Il mix multi-traccia finale vive
+//                               su tracks.overlay_mix_url (PATCH /api/tracks),
+//                               non qui: un mix combina PIU' layer insieme,
+//                               non e' piu' un 1:1 con un singolo overlay.
+// POST   /api/overlays        -> aggiunge un nuovo layer (voce/effetto/
+//                               strumento) sopra un track gia' generato.
+//                               L'audio e' gia' su Vercel Blob (upload
 //                               diretto client-to-blob via
-//                               api/overlay-upload-token.js, non passa piu'
-//                               dal body di questa funzione) — qui arriva
+//                               api/overlay-upload-token.js) — qui arriva
 //                               solo l'URL risultante, salvato cosi' com'e'.
-// PATCH /api/overlays?id=... -> salva il mix semplice fatto in browser
-//                               (mixedAudioUrl, gia' su Blob: qui arriva
-//                               solo l'URL).
+// DELETE /api/overlays?id=... -> rimuove un layer (es. una take scartata
+//                               prima del mix finale).
 function isOwnBlobUrl(url) {
   if (typeof url !== "string") return false;
   try {
@@ -42,10 +42,10 @@ export default async function handler(req, res) {
       const owned = await loadOwnedTrack(sql, trackId, user.id);
       if (!owned) return res.status(404).json({ error: "Track non trovato" });
 
-      const rows = await sql`
-        select * from overlays where track_id = ${trackId} order by created_at desc limit 1
+      const layers = await sql`
+        select * from overlays where track_id = ${trackId} order by created_at asc
       `;
-      return res.status(200).json({ overlay: rows[0] || null });
+      return res.status(200).json({ layers });
     }
 
     if (req.method === "POST") {
@@ -68,24 +68,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ overlay: rows[0] });
     }
 
-    if (req.method === "PATCH") {
+    if (req.method === "DELETE") {
       const { id } = req.query;
       if (!id) return res.status(400).json({ error: "id mancante" });
 
       const overlay = await loadOwnedOverlay(sql, id, user.id);
-      if (!overlay) return res.status(404).json({ error: "Overlay non trovato" });
+      if (!overlay) return res.status(404).json({ error: "Layer non trovato" });
 
-      const b = req.body || {};
-      if (!b.mixedAudioUrl || !isOwnBlobUrl(b.mixedAudioUrl)) {
-        return res.status(400).json({ error: "mixedAudioUrl non valido" });
+      try {
+        await del(overlay.raw_audio_url);
+      } catch {
+        /* file gia' rimosso, ignora */
       }
-      const rows = await sql`
-        update overlays set mixed_audio_url = ${b.mixedAudioUrl} where id = ${id} returning *
-      `;
-      return res.status(200).json({ overlay: rows[0] });
+      await sql`delete from overlays where id = ${id}`;
+      return res.status(200).json({ ok: true });
     }
 
-    res.setHeader("Allow", "GET, POST, PATCH, OPTIONS");
+    res.setHeader("Allow", "GET, POST, DELETE, OPTIONS");
     return res.status(405).json({ error: "Metodo non consentito" });
   } catch (e) {
     return res.status(500).json({ error: e.message });

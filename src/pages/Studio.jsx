@@ -748,7 +748,7 @@ textarea{resize:vertical}
 )}
 {wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
 </div>
-{t.id&&<OverlayRecorder trackId={t.id} baseAudioUrl={t.audio_url||t.url}/>}
+{t.id&&<OverlayRecorder trackId={t.id} baseAudioUrl={t.audio_url||t.url} initialMixUrl={t.overlay_mix_url}/>}
 </div>
 ))}
 </>}
