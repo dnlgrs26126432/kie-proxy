@@ -54,10 +54,6 @@ export default async function handler(req, res) {
         }),
       });
       const text = await r.text();
-      // DEBUG temporaneo: risposta grezza di kie.ai all'avvio della
-      // separazione, per capire come si comporta su un brano strumentale
-      // (senza voce) — errore esplicito, taskId valido ma risultato vuoto, ecc.
-      console.log(`[stems] POST type=${type} kie_task_id=${track.kie_task_id} httpStatus=${r.status} raw:`, text);
       let d;
       try { d = JSON.parse(text); } catch { d = { code: r.status, msg: text || "Risposta non valida da kie.ai" }; }
       return res.status(r.status).json(d);
@@ -70,8 +66,6 @@ export default async function handler(req, res) {
         headers: { Authorization: `Bearer ${apiKey}` },
       });
       const text = await r.text();
-      // DEBUG temporaneo: stessa ragione del POST, sul polling dello stato.
-      console.log(`[stems] GET taskId=${taskId} httpStatus=${r.status} raw:`, text);
       let d;
       try { d = JSON.parse(text); } catch { d = { code: r.status, msg: text || "Risposta non valida da kie.ai" }; }
       return res.status(r.status).json(d);

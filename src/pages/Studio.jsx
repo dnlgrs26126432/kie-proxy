@@ -455,19 +455,23 @@ setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Nessun taskId ricevuto"}
 return;
 }
 let att=0;
+// La separazione stem e' molto piu' lenta di una generazione normale
+// (osservato: ~5 minuti per uno split_stem completo su un brano di 110s) —
+// 150 tentativi a 3s = 7.5 minuti di margine, contro i 2 minuti usati
+// altrove per operazioni piu' rapide (WAV, generazione base).
+const STEM_LABELS={vocalUrl:"Voce",backingVocalsUrl:"Cori",instrumentalUrl:"Strumentale",drumsUrl:"Batteria",bassUrl:"Basso",guitarUrl:"Chitarra",pianoUrl:"Piano",keyboardUrl:"Tastiere",percussionUrl:"Percussioni",stringsUrl:"Archi",synthUrl:"Synth",fxUrl:"FX",brassUrl:"Ottoni",woodwindsUrl:"Legni"};
 const poll=async()=>{
-if(att++>40){setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Timeout — riprova"}}));return;}
+if(att++>150){setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Timeout — la separazione sta impiegando più del previsto, riprova tra poco"}}));return;}
 try{
 const sr=await fetch(`/api/stems?taskId=${stemsTaskId}`,{credentials:"include"});
 const sd=await sr.json();
 const data=sd?.data||sd;
 const flag=data?.successFlag||data?.status;
 if(flag==="SUCCESS"){
-// I nomi esatti dei campi non sono documentati in modo affidabile:
-// prendiamo qualunque URL http(s) restituito in response, usando la
-// chiave come etichetta (es. "vocalUrl", "instrumentalUrl", "drums"...).
+// I campi noti (vocalUrl, drumsUrl, ecc.) hanno un'etichetta leggibile;
+// eventuali campi non mappati restano con la chiave grezza come fallback.
 const resp=data?.response||{};
-const stems=Object.entries(resp).filter(([,v])=>typeof v==="string"&&/^https?:\/\//.test(v)).map(([k,v])=>({label:k,url:v}));
+const stems=Object.entries(resp).filter(([,v])=>typeof v==="string"&&/^https?:\/\//.test(v)).map(([k,v])=>({label:STEM_LABELS[k]||k,url:v}));
 if(stems.length){setStemsState(p=>({...p,[track.id]:{status:"ready",stems}}));}
 else{setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Separazione completata ma senza file"}}));}
 }else if(["CREATE_TASK_FAILED","GENERATE_STEM_FAILED","CALLBACK_EXCEPTION","FAILED"].includes(flag)){
