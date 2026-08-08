@@ -187,6 +187,10 @@ setSaving(false);
 }
 
 const callAI=async(mode)=>{
+if(mode==="testo"&&instrumental){
+alert("Il progetto è impostato su \"Strumentale\": non serve un testo, il brano non avrà voce. Passa a \"Con voce\" se vuoi scrivere dei testi.");
+return;
+}
 setAiLoad(true);setAiMode(mode);setAiOut("");
 const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
 const totalWords=Math.max(60,Math.round(duration*2));
