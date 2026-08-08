@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
 import OverlayRecorder from "../components/OverlayRecorder.jsx";
+import AudioVisualizer from "../components/AudioVisualizer.jsx";
 
 const GENRES = ["Trap","Hip-Hop","Drill","Pop","R&B","House","Phonk","Soul","Afrobeat","Indie"];
 const MOODS  = ["Dark","Euphoric","Melancholic","Aggressive","Dreamy","Romantic","Mysterious","Cinematic"];
@@ -810,7 +811,7 @@ textarea{resize:vertical}
 {t.id&&<button onClick={()=>deleteTrack(t.id)} style={{background:"none",border:"none",color:MU,cursor:"pointer",fontSize:13}} aria-label="Elimina brano">✕</button>}
 </div>
 </div>
-<audio src={t.audio_url||t.url} controls style={{width:"100%",height:36,borderRadius:8}}/>
+<AudioVisualizer src={t.audio_url||t.url}/>
 <div style={{marginTop:10,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
 <a href={t.audio_url||t.url} download={`${t.title||"track"}.mp3`} style={{...s.btn("g"),textDecoration:"none",width:"fit-content",padding:"7px 14px",fontSize:12}}>↓ Download MP3</a>
 {wavState[t.id]?.status==="ready"?(
