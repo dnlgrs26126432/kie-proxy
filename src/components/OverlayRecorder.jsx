@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { upload } from "@vercel/blob/client";
 
 // Stessi accenti cromatici della consolle (teal/viola), non i lime di consolle-1
@@ -239,6 +239,44 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     setErrorMsg("Timeout: la rigenerazione sta impiegando piu' del previsto, controlla tra poco");
     setStatus("error");
   }, []);
+
+  // Al mount (anche dopo un refresh) ricostruisce lo stato da quanto gia'
+  // salvato nel DB per questo track, invece di ripartire sempre da "idle":
+  // senza questo, un refresh durante una rigenerazione AI in corso fa
+  // perdere ogni traccia visibile del lavoro (il polling client-side muore
+  // con la pagina, e regeneration_status resta "pending" per sempre senza
+  // che nessuno lo riprenda).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/overlays?trackId=${trackId}`, { credentials: "include" });
+        const data = await res.json();
+        if (cancelled || !res.ok || !data.overlay) return;
+
+        const ov = data.overlay;
+        setOverlay(ov);
+
+        if (ov.regeneration_status === "completed" && ov.regenerated_audio_url) {
+          setResultUrl(ov.regenerated_audio_url);
+          setStatus("done");
+        } else if (ov.regeneration_status === "pending" && ov.regeneration_task_id) {
+          setStatus("regenerating");
+          pollRegeneration(ov.id, ov.regeneration_task_id);
+        } else if (ov.mixed_audio_url) {
+          setMixedUrl(ov.mixed_audio_url);
+          setStatus("mixed");
+        } else if (ov.raw_audio_url) {
+          setStatus("recorded");
+        }
+      } catch {
+        /* nessun overlay pregresso o errore di rete: si resta su idle */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [trackId, pollRegeneration]);
 
   return (
     <div

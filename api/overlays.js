@@ -2,6 +2,11 @@ import { sql, cors } from "./_db.js";
 import { getUserFromRequest } from "./_auth.js";
 import { loadOwnedTrack, loadOwnedOverlay } from "./_overlays.js";
 
+// GET   /api/overlays?trackId=... -> ultimo overlay salvato per quel track
+//                               (se esiste). Serve al client per ricostruire
+//                               lo stato al mount/refresh invece di ripartire
+//                               sempre da "idle" ignorando quanto gia' salvato
+//                               (registrazione/mix/rigenerazione in corso).
 // POST  /api/overlays        -> registra un overlay (voce/effetto) sopra un
 //                               track gia' generato. L'audio e' gia' stato
 //                               caricato su Vercel Blob dal client (upload
@@ -30,6 +35,19 @@ export default async function handler(req, res) {
   try {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ error: "Devi accedere" });
+
+    if (req.method === "GET") {
+      const { trackId } = req.query;
+      if (!trackId) return res.status(400).json({ error: "trackId mancante" });
+
+      const owned = await loadOwnedTrack(sql, trackId, user.id);
+      if (!owned) return res.status(404).json({ error: "Track non trovato" });
+
+      const rows = await sql`
+        select * from overlays where track_id = ${trackId} order by created_at desc limit 1
+      `;
+      return res.status(200).json({ overlay: rows[0] || null });
+    }
 
     if (req.method === "POST") {
       const b = req.body || {};
@@ -91,7 +109,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ overlay: rows[0] });
     }
 
-    res.setHeader("Allow", "POST, PATCH, OPTIONS");
+    res.setHeader("Allow", "GET, POST, PATCH, OPTIONS");
     return res.status(405).json({ error: "Metodo non consentito" });
   } catch (e) {
     return res.status(500).json({ error: e.message });
