@@ -303,7 +303,10 @@ customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`,
+prompt:hasLyrics?lyricsText:(instrumental
+?`${genreFull} ${mood} instrumental. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Purely instrumental arrangement, no vocals, no lyrics, no singing, enough content for a full ${durLabel} song — do not end early.`
+:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`
+),
 negativeTags:"Heavy Metal, Noise, Distortion, robotic vocals, auto-tune, synthetic voice, artificial, low-fi",
 styleWeight:0.7,
 weirdnessConstraint:0.3,
