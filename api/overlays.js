@@ -14,10 +14,9 @@ import { loadOwnedTrack, loadOwnedOverlay } from "./_overlays.js";
 //                               api/overlay-upload-token.js, non passa piu'
 //                               dal body di questa funzione) — qui arriva
 //                               solo l'URL risultante, salvato cosi' com'e'.
-// PATCH /api/overlays?id=... -> aggiorna un overlay esistente: o il mix
-//                               semplice (mixedAudioUrl, stesso discorso:
-//                               gia' su Blob, solo l'URL) o l'esito di una
-//                               rigenerazione via kie.ai (gia' un URL suo).
+// PATCH /api/overlays?id=... -> salva il mix semplice fatto in browser
+//                               (mixedAudioUrl, gia' su Blob: qui arriva
+//                               solo l'URL).
 function isOwnBlobUrl(url) {
   if (typeof url !== "string") return false;
   try {
@@ -77,34 +76,11 @@ export default async function handler(req, res) {
       if (!overlay) return res.status(404).json({ error: "Overlay non trovato" });
 
       const b = req.body || {};
-
-      if (b.mixedAudioUrl) {
-        if (!isOwnBlobUrl(b.mixedAudioUrl)) {
-          return res.status(400).json({ error: "mixedAudioUrl non valido" });
-        }
-        const rows = await sql`
-          update overlays set mixed_audio_url = ${b.mixedAudioUrl} where id = ${id} returning *
-        `;
-        return res.status(200).json({ overlay: rows[0] });
+      if (!b.mixedAudioUrl || !isOwnBlobUrl(b.mixedAudioUrl)) {
+        return res.status(400).json({ error: "mixedAudioUrl non valido" });
       }
-
-      // Esito di una rigenerazione: kie.ai restituisce gia' un URL, nessun upload qui.
-      // Conta come una generazione verso il limite mensile del piano, come una
-      // take normale (il controllo pre-avvio e' in api/regenerate-overlay.js,
-      // l'incremento avviene qui solo al completamento riuscito).
-      if (b.regeneration_status === "completed") {
-        await sql`update users set generation_count = coalesce(generation_count, 0) + 1 where id = ${user.id}`;
-      }
-
       const rows = await sql`
-        update overlays set
-          regeneration_status = coalesce(${b.regeneration_status || null}, regeneration_status),
-          regenerated_audio_url = coalesce(${b.regenerated_audio_url || null}, regenerated_audio_url),
-          regeneration_task_id = coalesce(${b.regeneration_task_id || null}, regeneration_task_id),
-          regeneration_mode = coalesce(${b.regeneration_mode || null}, regeneration_mode),
-          regeneration_error = coalesce(${b.regeneration_error || null}, regeneration_error)
-        where id = ${id}
-        returning *
+        update overlays set mixed_audio_url = ${b.mixedAudioUrl} where id = ${id} returning *
       `;
       return res.status(200).json({ overlay: rows[0] });
     }

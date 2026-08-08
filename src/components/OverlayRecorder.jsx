@@ -13,26 +13,30 @@ const COLORS = {
 /**
  * OverlayRecorder
  * Flusso: registra voce/effetti in sincrono con un track gia' generato ->
- * mix semplice locale (nessuna AI, costo zero, passo obbligatorio prima del
- * successivo) -> rifinitura opzionale via kie.ai (upload-cover) che parte
- * dal mix, non dalla registrazione isolata, cosi' l'AI preserva la
- * performance reale invece di ignorarla generando voce da zero.
+ * mix semplice locale (nessuna AI, costo zero, istantaneo). Il mix e' il
+ * risultato finito: scaricabile e gia' salvato automaticamente.
+ *
+ * Niente rifinitura AI (kie.ai upload-cover): abbandonata dopo vari
+ * tentativi (audioWeight, prompt persistito, resume del polling) perche'
+ * per design quell'endpoint reinterpreta l'intera canzone invece di
+ * rifinire il mix 1:1, ed era comunque inaffidabile (timeout frequenti).
+ * Non tocca in alcun modo la generazione AI della base sulla pagina
+ * principale (Studio.jsx / api/generate.js), che resta separata e invariata.
  *
  * A differenza della versione consolle-1: nessun client Supabase, upload
  * diretto client-to-blob via @vercel/blob/client (token firmato da
  * api/overlay-upload-token.js) per non sbattere contro il limite di body
  * delle funzioni serverless su file grandi, poi solo l'URL risultante va a
- * /api/overlays. Polling su /api/status gia' esistente (nessun callback).
+ * /api/overlays.
  *
  * Props:
  *  - trackId: id del track (tabella tracks) da sovrapporre
  *  - baseAudioUrl: url del track gia' generato
  */
 export default function OverlayRecorder({ trackId, baseAudioUrl }) {
-  const [status, setStatus] = useState("idle"); // idle | recording | recorded | mixing | mixed | regenerating | done | error
+  const [status, setStatus] = useState("idle"); // idle | recording | recorded | mixing | mixed | error
   const [overlay, setOverlay] = useState(null);
   const [mixedUrl, setMixedUrl] = useState(null);
-  const [resultUrl, setResultUrl] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
 
   const basePlayerRef = useRef(null);
@@ -215,78 +219,9 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     }
   }, [baseAudioUrl, overlay]);
 
-  // --- Rifinitura AI del mix gia' fatto (upload-cover di kie.ai) ---
-  const regenerateWithAI = useCallback(
-    async (mode = "cover") => {
-      if (!overlay) return;
-      setStatus("regenerating");
-      setErrorMsg(null);
-
-      try {
-        const res = await fetch("/api/regenerate-overlay", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ overlayId: overlay.id, mode }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || `Errore ${res.status}`);
-
-        await pollRegeneration(overlay.id, data.taskId);
-      } catch (err) {
-        setErrorMsg("Errore rigenerazione: " + err.message);
-        setStatus("error");
-      }
-    },
-    [overlay]
-  );
-
-  const pollRegeneration = useCallback(async (overlayId, taskId) => {
-    const maxAttempts = 40; // ~2 minuti a 3s di intervallo
-    for (let i = 0; i < maxAttempts; i++) {
-      await new Promise((r) => setTimeout(r, 3000));
-
-      const sr = await fetch(`/api/status?taskId=${taskId}`, { credentials: "include" });
-      const sd = await sr.json();
-      const taskData = sd?.data || sd;
-      const st = taskData?.status;
-      const clips = taskData?.response?.sunoData || taskData?.sunoData || taskData?.clips || [];
-
-      if (st === "SUCCESS" && clips.length > 0) {
-        const url = clips[0]?.audio_url || clips[0]?.audioUrl || clips[0]?.url;
-        await fetch(`/api/overlays?id=${overlayId}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ regeneration_status: "completed", regenerated_audio_url: url }),
-        });
-        setResultUrl(url);
-        setStatus("done");
-        return;
-      }
-      if (["CREATE_TASK_FAILED", "GENERATE_AUDIO_FAILED", "CALLBACK_EXCEPTION", "SENSITIVE_WORD_ERROR"].includes(st)) {
-        const msg = taskData?.errorMessage || taskData?.msg || "Rigenerazione fallita";
-        await fetch(`/api/overlays?id=${overlayId}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ regeneration_status: "failed", regeneration_error: msg }),
-        });
-        setErrorMsg(msg);
-        setStatus("error");
-        return;
-      }
-    }
-    setErrorMsg("Timeout: la rigenerazione sta impiegando piu' del previsto, controlla tra poco");
-    setStatus("error");
-  }, []);
-
   // Al mount (anche dopo un refresh) ricostruisce lo stato da quanto gia'
-  // salvato nel DB per questo track, invece di ripartire sempre da "idle":
-  // senza questo, un refresh durante una rigenerazione AI in corso fa
-  // perdere ogni traccia visibile del lavoro (il polling client-side muore
-  // con la pagina, e regeneration_status resta "pending" per sempre senza
-  // che nessuno lo riprenda).
+  // salvato nel DB per questo track, invece di ripartire sempre da "idle"
+  // ignorando una registrazione/mix gia' fatti.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -298,13 +233,7 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
         const ov = data.overlay;
         setOverlay(ov);
 
-        if (ov.regeneration_status === "completed" && ov.regenerated_audio_url) {
-          setResultUrl(ov.regenerated_audio_url);
-          setStatus("done");
-        } else if (ov.regeneration_status === "pending" && ov.regeneration_task_id) {
-          setStatus("regenerating");
-          pollRegeneration(ov.id, ov.regeneration_task_id);
-        } else if (ov.mixed_audio_url) {
+        if (ov.mixed_audio_url) {
           setMixedUrl(ov.mixed_audio_url);
           setStatus("mixed");
         } else if (ov.raw_audio_url) {
@@ -317,7 +246,7 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     return () => {
       cancelled = true;
     };
-  }, [trackId, pollRegeneration]);
+  }, [trackId]);
 
   // Permette di rifare la registrazione senza dover ricaricare la pagina:
   // l'overlay precedente resta nel DB (nessuna cancellazione), la prossima
@@ -325,7 +254,6 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
   const resetToIdle = useCallback(() => {
     setOverlay(null);
     setMixedUrl(null);
-    setResultUrl(null);
     setErrorMsg(null);
     setStatus("idle");
   }, []);
@@ -376,11 +304,7 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
         </button>
       )}
 
-      {(status === "mixing" || status === "regenerating") && (
-        <p style={{ color: COLORS.accent, fontSize: 12 }}>
-          {status === "mixing" ? "Mixaggio in corso…" : "Rifinitura AI in corso, può richiedere un minuto…"}
-        </p>
-      )}
+      {status === "mixing" && <p style={{ color: COLORS.accent, fontSize: 12 }}>Mixaggio in corso…</p>}
 
       {status === "mixed" && mixedUrl && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -392,32 +316,6 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
               style={{ ...buttonStyle(COLORS.accentDim, "#001A16"), textDecoration: "none", display: "inline-block" }}
             >
               ↓ Scarica mix
-            </a>
-            <button onClick={resetToIdle} style={buttonStyle("transparent", COLORS.textDim)}>
-              🔁 Registra di nuovo
-            </button>
-          </div>
-          <p style={{ color: COLORS.textDim, fontSize: 11 }}>
-            Il mix locale è già il risultato finito e salvato. In alternativa puoi provare una reinterpretazione
-            AI (kie.ai riscrive voce e arrangiamento intorno alla melodia, non è una rifinitura 1:1):
-          </p>
-          <button onClick={() => regenerateWithAI("cover")} style={buttonStyle(COLORS.accent, "#001A16")}>
-            Genera una cover AI ispirata al mix
-          </button>
-        </div>
-      )}
-
-      {status === "done" && resultUrl && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <p style={{ color: COLORS.accent, fontSize: 12 }}>Pronto:</p>
-          <audio controls src={resultUrl} style={{ width: "100%", height: 34 }} />
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <a
-              href={resultUrl}
-              download={`overlay-cover-${trackId}.mp3`}
-              style={{ ...buttonStyle(COLORS.accentDim, "#001A16"), textDecoration: "none", display: "inline-block" }}
-            >
-              ↓ Scarica
             </a>
             <button onClick={resetToIdle} style={buttonStyle("transparent", COLORS.textDim)}>
               🔁 Registra di nuovo

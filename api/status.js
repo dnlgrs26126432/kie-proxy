@@ -22,9 +22,6 @@ export default async function handler(req, res) {
       headers: { Authorization: `Bearer ${apiKey}` },
     });
     const text = await r.text();
-    // DEBUG temporaneo: risposta grezza e completa di kie.ai per capire se
-    // "data: null" significa task non trovato o ancora in elaborazione.
-    console.log(`[status] taskId=${taskId} httpStatus=${r.status} raw:`, text);
     let d;
     try {
       d = JSON.parse(text);
