@@ -54,6 +54,10 @@ export default async function handler(req, res) {
         }),
       });
       const text = await r.text();
+      // DEBUG temporaneo: split_stem torna "Nessun taskId ricevuto" lato
+      // client nonostante nessun errore esplicito — guardiamo la risposta
+      // grezza per capire se kie.ai la struttura diversamente da separate_vocal.
+      console.log(`[stems] POST type=${type} httpStatus=${r.status} raw:`, text);
       let d;
       try { d = JSON.parse(text); } catch { d = { code: r.status, msg: text || "Risposta non valida da kie.ai" }; }
       return res.status(r.status).json(d);
