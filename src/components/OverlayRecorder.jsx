@@ -112,6 +112,47 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     }
   }, [trackId]);
 
+  // Alternativa alla registrazione dal microfono: carica un file gia'
+  // pronto dal PC (es. una registrazione fatta altrove). Utile anche per
+  // isolare se un problema e' nel mixaggio/upload fatto in browser o a
+  // valle (kie.ai) — con un file diverso e riconoscibile si vede subito se
+  // la rigenerazione AI ne tiene conto o no.
+  const uploadFromFile = useCallback(
+    async (file) => {
+      if (!file) return;
+      setErrorMsg(null);
+      setStatus("mixing"); // riusa lo stesso indicatore "in corso" del mix
+
+      try {
+        const uploaded = await upload(`overlays/raw-${trackId}-${Date.now()}-${file.name}`, file, {
+          access: "public",
+          contentType: file.type || "audio/mpeg",
+          handleUploadUrl: "/api/overlay-upload-token",
+          clientPayload: JSON.stringify({ kind: "raw", trackId }),
+        });
+
+        const res = await fetch("/api/overlays", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ trackId, audioUrl: uploaded.url, overlayType: "voice" }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setErrorMsg(data.error || `Errore ${res.status}`);
+          setStatus("error");
+          return;
+        }
+        setOverlay(data.overlay);
+        setStatus("recorded");
+      } catch (err) {
+        setErrorMsg("Errore caricamento file: " + err.message);
+        setStatus("error");
+      }
+    },
+    [trackId]
+  );
+
   // --- Mix semplice, nessuna chiamata AI, costo zero ---
   const mixSimple = useCallback(async () => {
     if (!overlay) return;
@@ -307,9 +348,20 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
       <audio ref={basePlayerRef} src={baseAudioUrl} style={{ display: "none" }} />
 
       {status === "idle" && (
-        <button onClick={startRecording} style={buttonStyle(COLORS.accent, "#001A16")}>
-          ● Registra sopra la base
-        </button>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <button onClick={startRecording} style={buttonStyle(COLORS.accent, "#001A16")}>
+            ● Registra sopra la base
+          </button>
+          <label style={{ ...buttonStyle("transparent", COLORS.textDim), cursor: "pointer" }}>
+            📁 Carica file dal PC
+            <input
+              type="file"
+              accept="audio/*"
+              style={{ display: "none" }}
+              onChange={(e) => uploadFromFile(e.target.files?.[0])}
+            />
+          </label>
+        </div>
       )}
 
       {status === "recording" && (
