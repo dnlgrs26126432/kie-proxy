@@ -86,7 +86,10 @@ export default async function handler(req, res) {
       // esistono callback implementati, tutto e' polling su /api/status.
       callBackUrl: "https://example.com/callback",
       ...(mode === "extend" ? { continueAt: 0, instrumental: false } : {}),
-      ...(mode === "cover" ? { customMode: true, instrumental: false } : {}),
+      // audioWeight alto: senza impostarlo, kie.ai usa un default che lascia
+      // l'AI quasi libera di ignorare l'audio caricato (il mix con la voce
+      // registrata) e riscrivere la canzone da zero seguendo solo style/prompt.
+      ...(mode === "cover" ? { customMode: true, instrumental: false, audioWeight: 0.75 } : {}),
     };
 
     const kieRes = await fetch(`https://api.kie.ai${ENDPOINT_BY_MODE[mode]}`, {
