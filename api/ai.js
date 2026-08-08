@@ -46,6 +46,9 @@ export default async function handler(req, res) {
     } catch {
       d = { error: text || "Risposta non valida da Anthropic" };
     }
+    // DEBUG temporaneo: risposta grezza e completa di Anthropic, per capire
+    // perche' il client a volte estrae un testo vuoto ("Nessuna risposta").
+    console.log(`[ai] httpStatus=${r.status} raw:`, text);
 
     if (r.ok) {
       await sql`update users set ai_text_count = coalesce(ai_text_count, 0) + 1 where id = ${user.id}`;
