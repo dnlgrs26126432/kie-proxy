@@ -278,6 +278,17 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
     };
   }, [trackId, pollRegeneration]);
 
+  // Permette di rifare la registrazione senza dover ricaricare la pagina:
+  // l'overlay precedente resta nel DB (nessuna cancellazione), la prossima
+  // registrazione ne crea semplicemente uno nuovo per lo stesso track.
+  const resetToIdle = useCallback(() => {
+    setOverlay(null);
+    setMixedUrl(null);
+    setResultUrl(null);
+    setErrorMsg(null);
+    setStatus("idle");
+  }, []);
+
   return (
     <div
       style={{
@@ -322,11 +333,24 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
       {status === "mixed" && mixedUrl && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <audio controls src={mixedUrl} style={{ width: "100%", height: 34 }} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <a
+              href={mixedUrl}
+              download={`overlay-mix-${trackId}.wav`}
+              style={{ ...buttonStyle(COLORS.accentDim, "#001A16"), textDecoration: "none", display: "inline-block" }}
+            >
+              ↓ Scarica mix
+            </a>
+            <button onClick={resetToIdle} style={buttonStyle("transparent", COLORS.textDim)}>
+              🔁 Registra di nuovo
+            </button>
+          </div>
           <p style={{ color: COLORS.textDim, fontSize: 11 }}>
-            Puoi tenere questo mix così com'è, oppure rifinirlo con l'AI mantenendo la tua performance:
+            Il mix locale è già il risultato finito e salvato. In alternativa puoi provare una reinterpretazione
+            AI (kie.ai riscrive voce e arrangiamento intorno alla melodia, non è una rifinitura 1:1):
           </p>
           <button onClick={() => regenerateWithAI("cover")} style={buttonStyle(COLORS.accent, "#001A16")}>
-            Rifinisci con AI (kie.ai)
+            Genera una cover AI ispirata al mix
           </button>
         </div>
       )}
@@ -335,10 +359,29 @@ export default function OverlayRecorder({ trackId, baseAudioUrl }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <p style={{ color: COLORS.accent, fontSize: 12 }}>Pronto:</p>
           <audio controls src={resultUrl} style={{ width: "100%", height: 34 }} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <a
+              href={resultUrl}
+              download={`overlay-cover-${trackId}.mp3`}
+              style={{ ...buttonStyle(COLORS.accentDim, "#001A16"), textDecoration: "none", display: "inline-block" }}
+            >
+              ↓ Scarica
+            </a>
+            <button onClick={resetToIdle} style={buttonStyle("transparent", COLORS.textDim)}>
+              🔁 Registra di nuovo
+            </button>
+          </div>
         </div>
       )}
 
-      {status === "error" && <p style={{ color: "#FF6B6B", fontSize: 12 }}>{errorMsg}</p>}
+      {status === "error" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <p style={{ color: "#FF6B6B", fontSize: 12 }}>{errorMsg}</p>
+          <button onClick={resetToIdle} style={buttonStyle("transparent", COLORS.textDim)}>
+            🔁 Riprova
+          </button>
+        </div>
+      )}
     </div>
   );
 }
