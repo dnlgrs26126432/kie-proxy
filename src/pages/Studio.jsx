@@ -821,8 +821,6 @@ textarea{resize:vertical}
 <button onClick={()=>convertToWav(t)} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎚 Converti in WAV</button>
 )}
 {wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
-</div>
-<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
 {stemsState[t.id]?.status==="loading"?(
 <span style={{fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}}>⏳ {stemsState[t.id].msg}</span>
 ):(
