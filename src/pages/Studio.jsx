@@ -90,6 +90,7 @@ const [darkness,setDarkness]=useState(70);
 const [refArtist,setRefArtist]=useState("");
 const [duration,setDuration]=useState(120);
 const [instrumental,setInstrumental]=useState(false);
+const [showQuickStart,setShowQuickStart]=useState(true);
 const [lyricsLang,setLyricsLang]=useState("it");
 const [manualPrompt,setManualPrompt]=useState("");
 const [directorNotes,setDirectorNotes]=useState("");
@@ -568,6 +569,17 @@ textarea{resize:vertical}
 
 {/* SIDEBAR */}
 <div style={{width:225,flexShrink:0,background:SF,borderRight:`1px solid ${BR}`,overflowY:"auto",padding:"14px 12px",display:"flex",flexDirection:"column",gap:14}}>
+{showQuickStart&&(
+<div style={{background:"#1E1E35",border:`1px solid ${BR}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{fontSize:9,fontWeight:700,color:MU,textTransform:"uppercase",letterSpacing:"0.5px"}}>Cosa vuoi generare?</span>
+<button onClick={()=>setShowQuickStart(false)} style={{background:"none",border:"none",color:MU,cursor:"pointer",fontSize:11,padding:0}} aria-label="Chiudi">✕</button>
+</div>
+<button style={{...s.btn(!instrumental?"m":"g"),justifyContent:"flex-start",fontSize:11}} onClick={()=>{setInstrumental(false);setShowQuickStart(false);}}>🎤 Canzone completa con voce AI</button>
+<button style={{...s.btn(instrumental?"m":"g"),justifyContent:"flex-start",fontSize:11}} onClick={()=>{setInstrumental(true);setShowQuickStart(false);}}>🎸 Solo base — canto/suono io sopra</button>
+<span style={{fontSize:9,color:MU,lineHeight:1.4}}>La seconda opzione genera una base strumentale pronta per l'Overlay Recorder, senza voce AI da sovrapporre alla tua.</span>
+</div>
+)}
 <div>
 <span style={s.lbl}>Titolo</span>
 <div style={{display:"flex",gap:6}}>
