@@ -596,7 +596,7 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Dark <span style={{color:V,fontFamily:"'JetBrains Mono',monospace"}}>{darkness}%</span></span><input type="range" min={0} max={100} value={darkness} onChange={e=>setDarkness(+e.target.value)} style={{accentColor:V}}/></div>
 <div><span style={s.lbl}>Riferimento artistico</span><input style={{...s.inp,fontSize:12}} placeholder="Suona come... es. Shiva x Drake" value={refArtist} onChange={e=>setRefArtist(e.target.value)}/></div>
 <div><span style={s.lbl}>Durata</span><div style={{display:"flex",gap:4}}>{DURATIONS.map(d=><button key={d.v} style={s.chip(duration===d.v)} onClick={()=>setDuration(d.v)}>{d.l}</button>)}</div></div>
-<div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div></div>
+<div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div><div style={{fontSize:10,color:MU,marginTop:5,lineHeight:1.5}}>Vuoi cantare o suonare tu sopra la base con l'Overlay Recorder? Scegli "Strumentale", altrimenti ci sarebbe già una voce AI a sovrapporsi alla tua.</div></div>
 <div><span style={s.lbl}>Lingua testo</span><div style={{display:"flex",gap:4}}><button style={s.chip(lyricsLang==="it")} onClick={()=>setLyricsLang("it")}>Italiano</button><button style={s.chip(lyricsLang==="en")} onClick={()=>setLyricsLang("en")}>Inglese</button></div></div>
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
@@ -790,6 +790,11 @@ textarea{resize:vertical}
 </div>
 ))}
 </div>
+{!instrumental&&(
+<div style={{fontSize:11,color:MU,lineHeight:1.5,marginBottom:14,padding:"8px 12px",background:"#1E1E35",border:`1px solid ${BR}`,borderRadius:8}}>
+💡 Se vuoi poi cantare o suonare tu sopra questa base con l'Overlay Recorder, torna indietro e scegli "Strumentale": altrimenti la base avrà già una voce AI.
+</div>
+)}
 <div style={{display:"flex",gap:10}}>
 <button style={{...s.btn("m"),flex:1}} onClick={confirmGenerate}>◈ Conferma e Genera</button>
 <button style={s.btn("g")} onClick={()=>setShowPreview(false)}>Modifica</button>
