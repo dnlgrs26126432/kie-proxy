@@ -12,6 +12,11 @@ import { getUserFromRequest } from "./_auth.js";
 //                                ritorna gli URL degli stem quando pronti
 export default async function handler(req, res) {
   cors(res);
+  // Il polling ripete la stessa GET (stesso taskId) ogni pochi secondi: senza
+  // questo header, una risposta identica alla precedente (es. ancora
+  // "PENDING") puo' essere servita come 304 Not Modified da una cache
+  // intermedia — corpo vuoto, che il client non riesce a interpretare.
+  res.setHeader("Cache-Control", "no-store");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
@@ -54,10 +59,6 @@ export default async function handler(req, res) {
         }),
       });
       const text = await r.text();
-      // DEBUG temporaneo: split_stem torna "Nessun taskId ricevuto" lato
-      // client nonostante nessun errore esplicito — guardiamo la risposta
-      // grezza per capire se kie.ai la struttura diversamente da separate_vocal.
-      console.log(`[stems] POST type=${type} httpStatus=${r.status} raw:`, text);
       let d;
       try { d = JSON.parse(text); } catch { d = { code: r.status, msg: text || "Risposta non valida da kie.ai" }; }
       return res.status(r.status).json(d);
