@@ -1,18 +1,40 @@
 import { useRef, useEffect } from "react";
 
-// Stessi accenti cromatici della consolle (teal/viola)
-const M = "#00D4AA", V = "#6C3BFF", BAR_BG = "#1E1E35";
+const BAR_BG = "#1E1E35";
+const LED_OFF = "#252540";
+const LED_GREEN = "#00D4AA";
+const LED_YELLOW = "#F5C518";
+const LED_RED = "#FF4444";
+
+// Sensibilita' del meter: l'RMS di un mix musicale tipico e' basso
+// (spesso 0.05-0.3), senza un moltiplicatore i LED non si accenderebbero mai.
+const SENSITIVITY = 3.5;
+
+function ledColor(ratio) {
+  if (ratio < 0.6) return LED_GREEN;
+  if (ratio < 0.85) return LED_YELLOW;
+  return LED_RED;
+}
+
+function rms(dataArray) {
+  let sum = 0;
+  for (let i = 0; i < dataArray.length; i++) {
+    const v = (dataArray[i] - 128) / 128;
+    sum += v * v;
+  }
+  return Math.sqrt(sum / dataArray.length);
+}
 
 /**
  * AudioVisualizer
- * Player <audio> nativo + barra LED che reagisce in tempo reale al ritmo,
- * via Web Audio API (AnalyserNode sui dati di frequenza). Nessun costo
- * server: tutto calcolato lato client mentre il brano suona.
+ * Player <audio> nativo + VU meter LED orizzontale a 2 canali (L/R),
+ * verde -> giallo -> rosso al crescere del volume, come un mixer classico.
+ * Calcolato interamente lato client via Web Audio API, nessun costo server.
  *
  * Nota: createMediaElementSource() collega l'elemento <audio> a un
  * AudioContext — richiede che l'audio sia servito con CORS permissivo
  * (Vercel Blob pubblico lo e' di default) e che l'elemento abbia
- * crossOrigin="anonymous", altrimenti l'analyser resta a zero.
+ * crossOrigin="anonymous", altrimenti il meter resta spento.
  *
  * Props:
  *  - src: url del brano
@@ -28,25 +50,33 @@ export default function AudioVisualizer({ src, style }) {
     const canvas = canvasRef.current;
     if (!audio || !canvas) return;
 
-    let audioCtx, analyser, dataArray, source;
+    let audioCtx, splitter, analyserL, analyserR, dataL, dataR, source;
     try {
       audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       source = audioCtx.createMediaElementSource(audio);
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 64;
-      analyser.smoothingTimeConstant = 0.75;
-      source.connect(analyser);
-      analyser.connect(audioCtx.destination);
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
+      splitter = audioCtx.createChannelSplitter(2);
+      analyserL = audioCtx.createAnalyser();
+      analyserR = audioCtx.createAnalyser();
+      analyserL.fftSize = 512;
+      analyserR.fftSize = 512;
+
+      source.connect(splitter);
+      splitter.connect(analyserL, 0);
+      splitter.connect(analyserR, 1);
+      source.connect(audioCtx.destination);
+
+      dataL = new Uint8Array(analyserL.fftSize);
+      dataR = new Uint8Array(analyserR.fftSize);
     } catch {
-      // Web Audio non disponibile o CORS bloccato: niente barra, il player
+      // Web Audio non disponibile o CORS bloccato: niente meter, il player
       // normale resta comunque funzionante.
       return;
     }
 
     const ctx = canvas.getContext("2d");
-    const BAR_COUNT = 28;
+    const SEGMENTS = 30;
     const GAP = 2;
+    const ROW_GAP = 5;
 
     function resize() {
       const rect = canvas.getBoundingClientRect();
@@ -56,28 +86,27 @@ export default function AudioVisualizer({ src, style }) {
     resize();
     window.addEventListener("resize", resize);
 
+    function drawRow(yOffset, rowH, level) {
+      const segW = (canvas.width - GAP * (SEGMENTS - 1)) / SEGMENTS;
+      const litCount = Math.round(Math.min(1, level) * SEGMENTS);
+      for (let i = 0; i < SEGMENTS; i++) {
+        const ratio = i / (SEGMENTS - 1);
+        ctx.fillStyle = i < litCount ? ledColor(ratio) : LED_OFF;
+        ctx.fillRect(i * (segW + GAP), yOffset, segW, rowH);
+      }
+    }
+
     function draw() {
       rafRef.current = requestAnimationFrame(draw);
-      analyser.getByteFrequencyData(dataArray);
+      analyserL.getByteTimeDomainData(dataL);
+      analyserR.getByteTimeDomainData(dataR);
+      const levelL = audio.paused ? 0 : rms(dataL) * SENSITIVITY;
+      const levelR = audio.paused ? 0 : rms(dataR) * SENSITIVITY;
 
-      const w = canvas.width, h = canvas.height;
-      ctx.clearRect(0, 0, w, h);
-
-      const barWidth = (w - GAP * (BAR_COUNT - 1)) / BAR_COUNT;
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const idx = Math.floor((i * dataArray.length) / BAR_COUNT);
-        const value = audio.paused ? 0 : dataArray[idx] / 255;
-        const barH = Math.max(h * 0.06, value * h);
-        const x = i * (barWidth + GAP);
-        const y = h - barH;
-
-        const grad = ctx.createLinearGradient(0, h, 0, 0);
-        grad.addColorStop(0, M);
-        grad.addColorStop(0.7, M);
-        grad.addColorStop(1, V);
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, y, barWidth, barH);
-      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const rowH = (canvas.height - ROW_GAP) / 2;
+      drawRow(0, rowH, levelL);
+      drawRow(rowH + ROW_GAP, rowH, levelR);
     }
     draw();
 
@@ -105,7 +134,7 @@ export default function AudioVisualizer({ src, style }) {
       />
       <canvas
         ref={canvasRef}
-        style={{ width: "100%", height: 32, marginTop: 6, borderRadius: 4, background: BAR_BG, display: "block" }}
+        style={{ width: "100%", height: 28, marginTop: 6, borderRadius: 4, background: BAR_BG, display: "block" }}
       />
     </div>
   );
