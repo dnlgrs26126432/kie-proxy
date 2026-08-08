@@ -2,10 +2,23 @@ import { put, del } from "@vercel/blob";
 import { sql, cors } from "./_db.js";
 import { getUserFromRequest, PLAN_LIMITS, checkMonthlyLimit } from "./_auth.js";
 
+function isOwnBlobUrl(url) {
+  if (typeof url !== "string") return false;
+  try {
+    const { protocol, hostname } = new URL(url);
+    return protocol === "https:" && hostname.endsWith(".public.blob.vercel-storage.com");
+  } catch {
+    return false;
+  }
+}
+
 // POST   /api/tracks       -> scarica l'audio da kie.ai, lo ricarica su Vercel Blob
 //                             (permanente anche se l'URL di kie.ai scade), salva il
 //                             record collegato al progetto e applica il limite di
 //                             generazioni mensili del piano dell'utente.
+// PATCH  /api/tracks?id=... -> aggiorna overlay_mix_url (mix multi-traccia
+//                             dell'Overlay Recorder, gia' su Vercel Blob:
+//                             qui arriva solo l'URL risultante).
 // DELETE /api/tracks?id=... -> elimina un brano salvato (solo se del progetto dell'utente)
 export default async function handler(req, res) {
   cors(res);
@@ -43,11 +56,29 @@ export default async function handler(req, res) {
       });
 
       const rows = await sql`
-        insert into tracks (project_id, title, audio_url, source_url, take_index, duration_seconds, kie_task_id, kie_audio_id)
-        values (${b.project_id}, ${b.title || "Track"}, ${blob.url}, ${b.source_url}, ${b.take_index ?? 0}, ${b.duration_seconds || null}, ${b.kie_task_id || null}, ${b.kie_audio_id || null})
+        insert into tracks (project_id, title, audio_url, source_url, take_index, duration_seconds, kie_task_id, kie_audio_id, generation_params)
+        values (${b.project_id}, ${b.title || "Track"}, ${blob.url}, ${b.source_url}, ${b.take_index ?? 0}, ${b.duration_seconds || null}, ${b.kie_task_id || null}, ${b.kie_audio_id || null}, ${b.generation_params ? JSON.stringify(b.generation_params) : null})
         returning *
       `;
       await sql`update users set generation_count = coalesce(generation_count, 0) + 1 where id = ${user.id}`;
+      return res.status(200).json({ track: rows[0] });
+    }
+
+    if (req.method === "PATCH") {
+      const { id } = req.query;
+      if (!id) return res.status(400).json({ error: "id mancante" });
+
+      const b = req.body || {};
+      if (!b.overlay_mix_url || !isOwnBlobUrl(b.overlay_mix_url)) {
+        return res.status(400).json({ error: "overlay_mix_url non valido" });
+      }
+
+      const rows = await sql`
+        update tracks set overlay_mix_url = ${b.overlay_mix_url}
+        where id = ${id} and project_id in (select id from projects where user_id = ${user.id})
+        returning *
+      `;
+      if (rows.length === 0) return res.status(404).json({ error: "Brano non trovato" });
       return res.status(200).json({ track: rows[0] });
     }
 
@@ -69,7 +100,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: true });
     }
 
-    res.setHeader("Allow", "POST, DELETE, OPTIONS");
+    res.setHeader("Allow", "POST, PATCH, DELETE, OPTIONS");
     return res.status(405).json({ error: "Metodo non consentito" });
   } catch (e) {
     return res.status(500).json({ error: e.message });

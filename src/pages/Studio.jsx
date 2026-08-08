@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
+import OverlayRecorder from "../components/OverlayRecorder.jsx";
 
 const GENRES = ["Trap","Hip-Hop","Drill","Pop","R&B","House","Phonk","Soul","Afrobeat","Indie"];
 const MOODS  = ["Dark","Euphoric","Melancholic","Aggressive","Dreamy","Romantic","Mysterious","Cinematic"];
@@ -89,6 +90,7 @@ const [darkness,setDarkness]=useState(70);
 const [refArtist,setRefArtist]=useState("");
 const [duration,setDuration]=useState(120);
 const [instrumental,setInstrumental]=useState(false);
+const [showQuickStart,setShowQuickStart]=useState(true);
 const [lyricsLang,setLyricsLang]=useState("it");
 const [manualPrompt,setManualPrompt]=useState("");
 const [directorNotes,setDirectorNotes]=useState("");
@@ -105,6 +107,7 @@ const [genStatus,setGenStatus]=useState("");
 const [generating,setGenerating]=useState(false);
 const [tracks,setTracks]=useState([]);
 const [wavState,setWavState]=useState({});
+const [stemsState,setStemsState]=useState({});
 
 const ch=getChords(key,scale);
 const toggle=s=>setSections(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s]);
@@ -184,6 +187,10 @@ setSaving(false);
 }
 
 const callAI=async(mode)=>{
+if(mode==="testo"&&instrumental){
+alert("Il progetto è impostato su \"Strumentale\": non serve un testo, il brano non avrà voce. Passa a \"Con voce\" se vuoi scrivere dei testi.");
+return;
+}
 setAiLoad(true);setAiMode(mode);setAiOut("");
 const linesPerSection=Math.max(4,Math.round(duration/(Math.max(sections.length,1)*3)));
 const totalWords=Math.max(60,Math.round(duration*2));
@@ -300,7 +307,10 @@ customMode:true,
 instrumental:instrumental,
 title:title||"Untitled",
 style:stylePrompt.slice(0,1000),
-prompt:hasLyrics?lyricsText:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`,
+prompt:hasLyrics?lyricsText:(instrumental
+?`${genreFull} ${mood} instrumental. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Purely instrumental arrangement, no vocals, no lyrics, no singing, enough content for a full ${durLabel} song — do not end early.`
+:`${genreFull} ${mood} song about ${concept||"emotions and life"}. ${bpm} BPM, ${key} ${scale}, chords ${chordHint}. Energy: ${energy}%.${directorNotes?` Direction: ${directorNotes}.`:""} Write powerful lyrics in ${vocalLangName} with a memorable hook, enough content for a full ${durLabel} song — do not end early. Sing entirely in ${vocalLangName}.`
+),
 negativeTags:"Heavy Metal, Noise, Distortion, robotic vocals, auto-tune, synthetic voice, artificial, low-fi",
 styleWeight:0.7,
 weirdnessConstraint:0.3,
@@ -341,7 +351,7 @@ const clip=clips[i];
 const url=clip?.audio_url||clip?.audioUrl||clip?.url;
 if(!url)continue;
 try{
-const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null,kie_task_id:taskId,kie_audio_id:clip?.id||null})});
+const tr=await fetch("/api/tracks",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_id:pid,title:clip?.title||title||"Track",source_url:url,take_index:i,duration_seconds:clip?.duration||null,kie_task_id:taskId,kie_audio_id:clip?.id||null,generation_params:body})});
 const td=await tr.json();
 if(td.track)saved.push(td.track);
 }catch{ /* singola take non salvata, si continua con le altre */ }
@@ -420,6 +430,60 @@ setTimeout(poll,3000);
 setTimeout(poll,4000);
 }catch(e){
 setWavState(p=>({...p,[track.id]:{status:"error",msg:e.message}}));
+}
+}
+
+// Separa un brano gia' generato in stem (voce/base, o fino a 12 strumenti)
+// tramite kie.ai. Stessa limitazione della conversione WAV: serve
+// kie_task_id/kie_audio_id salvati sul brano.
+async function exportStems(track,type){
+if(!track.kie_task_id||!track.kie_audio_id){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Brano generato prima di questa funzione: rigeneralo per esportare gli stem"}}));
+return;
+}
+setStemsState(p=>({...p,[track.id]:{status:"loading",msg:type==="split_stem"?"Separazione stem completa in corso...":"Separazione voce/base in corso..."}}));
+try{
+const r=await fetch("/api/stems",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({trackId:track.id,type})});
+const d=await r.json().catch(()=>({}));
+if(!r.ok||d.error){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:d.error||d.msg||"Errore avvio separazione"}}));
+return;
+}
+const stemsTaskId=d?.data?.taskId||d?.taskId;
+if(!stemsTaskId){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Nessun taskId ricevuto"}}));
+return;
+}
+let att=0;
+// La separazione stem e' molto piu' lenta di una generazione normale
+// (osservato: ~5 minuti per uno split_stem completo su un brano di 110s) —
+// 150 tentativi a 3s = 7.5 minuti di margine, contro i 2 minuti usati
+// altrove per operazioni piu' rapide (WAV, generazione base).
+const STEM_LABELS={vocalUrl:"Voce",backingVocalsUrl:"Cori",instrumentalUrl:"Strumentale",drumsUrl:"Batteria",bassUrl:"Basso",guitarUrl:"Chitarra",pianoUrl:"Piano",keyboardUrl:"Tastiere",percussionUrl:"Percussioni",stringsUrl:"Archi",synthUrl:"Synth",fxUrl:"FX",brassUrl:"Ottoni",woodwindsUrl:"Legni"};
+const poll=async()=>{
+if(att++>150){setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Timeout — la separazione sta impiegando più del previsto, riprova tra poco"}}));return;}
+try{
+const sr=await fetch(`/api/stems?taskId=${stemsTaskId}`,{credentials:"include"});
+const sd=await sr.json();
+const data=sd?.data||sd;
+const flag=data?.successFlag||data?.status;
+if(flag==="SUCCESS"){
+// I campi noti (vocalUrl, drumsUrl, ecc.) hanno un'etichetta leggibile;
+// eventuali campi non mappati restano con la chiave grezza come fallback.
+const resp=data?.response||{};
+const stems=Object.entries(resp).filter(([,v])=>typeof v==="string"&&/^https?:\/\//.test(v)).map(([k,v])=>({label:STEM_LABELS[k]||k,url:v}));
+if(stems.length){setStemsState(p=>({...p,[track.id]:{status:"ready",stems}}));}
+else{setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Separazione completata ma senza file"}}));}
+}else if(["CREATE_TASK_FAILED","GENERATE_STEM_FAILED","CALLBACK_EXCEPTION","FAILED"].includes(flag)){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:data?.errorMessage||flag}}));
+}else{
+setTimeout(poll,3000);
+}
+}catch{setTimeout(poll,4000);}
+};
+setTimeout(poll,4000);
+}catch(e){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:e.message}}));
 }
 }
 
@@ -567,6 +631,17 @@ textarea{resize:vertical}
 
 {/* SIDEBAR */}
 <div style={{width:225,flexShrink:0,background:SF,borderRight:`1px solid ${BR}`,overflowY:"auto",padding:"14px 12px",display:"flex",flexDirection:"column",gap:14}}>
+{showQuickStart&&(
+<div style={{background:"#1E1E35",border:`1px solid ${BR}`,borderRadius:8,padding:10,display:"flex",flexDirection:"column",gap:7}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{fontSize:9,fontWeight:700,color:MU,textTransform:"uppercase",letterSpacing:"0.5px"}}>Cosa vuoi generare?</span>
+<button onClick={()=>setShowQuickStart(false)} style={{background:"none",border:"none",color:MU,cursor:"pointer",fontSize:11,padding:0}} aria-label="Chiudi">✕</button>
+</div>
+<button style={{...s.btn(!instrumental?"m":"g"),justifyContent:"flex-start",fontSize:11}} onClick={()=>{setInstrumental(false);setShowQuickStart(false);}}>🎤 Canzone completa con voce AI</button>
+<button style={{...s.btn(instrumental?"m":"g"),justifyContent:"flex-start",fontSize:11}} onClick={()=>{setInstrumental(true);setShowQuickStart(false);}}>🎸 Solo base — canto/suono io sopra</button>
+<span style={{fontSize:9,color:MU,lineHeight:1.4}}>La seconda opzione genera una base strumentale pronta per l'Overlay Recorder, senza voce AI da sovrapporre alla tua.</span>
+</div>
+)}
 <div>
 <span style={s.lbl}>Titolo</span>
 <div style={{display:"flex",gap:6}}>
@@ -595,7 +670,7 @@ textarea{resize:vertical}
 <div><span style={s.lbl}>Dark <span style={{color:V,fontFamily:"'JetBrains Mono',monospace"}}>{darkness}%</span></span><input type="range" min={0} max={100} value={darkness} onChange={e=>setDarkness(+e.target.value)} style={{accentColor:V}}/></div>
 <div><span style={s.lbl}>Riferimento artistico</span><input style={{...s.inp,fontSize:12}} placeholder="Suona come... es. Shiva x Drake" value={refArtist} onChange={e=>setRefArtist(e.target.value)}/></div>
 <div><span style={s.lbl}>Durata</span><div style={{display:"flex",gap:4}}>{DURATIONS.map(d=><button key={d.v} style={s.chip(duration===d.v)} onClick={()=>setDuration(d.v)}>{d.l}</button>)}</div></div>
-<div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div></div>
+<div><span style={s.lbl}>Voce</span><div style={{display:"flex",gap:4}}><button style={s.chip(!instrumental,M)} onClick={()=>setInstrumental(false)}>Con voce</button><button style={s.chip(instrumental,V)} onClick={()=>setInstrumental(true)}>Strumentale</button></div><div style={{fontSize:10,color:MU,marginTop:5,lineHeight:1.5}}>Vuoi cantare o suonare tu sopra la base con l'Overlay Recorder? Scegli "Strumentale", altrimenti ci sarebbe già una voce AI a sovrapporsi alla tua.</div></div>
 <div><span style={s.lbl}>Lingua testo</span><div style={{display:"flex",gap:4}}><button style={s.chip(lyricsLang==="it")} onClick={()=>setLyricsLang("it")}>Italiano</button><button style={s.chip(lyricsLang==="en")} onClick={()=>setLyricsLang("en")}>Inglese</button></div></div>
 <div><span style={s.lbl}>Concept</span><textarea style={{...s.inp,minHeight:72,lineHeight:1.6,fontSize:12}} placeholder="Tema, storia, emozione..." value={concept} onChange={e=>setConcept(e.target.value)}/></div>
 <div><span style={s.lbl}>Note di regia</span><textarea style={{...s.inp,minHeight:56,fontSize:12}} placeholder="Istruzioni extra per il producer..." value={directorNotes} onChange={e=>setDirectorNotes(e.target.value)}/></div>
@@ -747,6 +822,25 @@ textarea{resize:vertical}
 )}
 {wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
 </div>
+<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+{stemsState[t.id]?.status==="loading"?(
+<span style={{fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}}>⏳ {stemsState[t.id].msg}</span>
+):(
+<>
+<button onClick={()=>exportStems(t,"separate_vocal")} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎤 Separa voce/base</button>
+<button onClick={()=>exportStems(t,"split_stem")} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎛 Stem completi</button>
+</>
+)}
+{stemsState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {stemsState[t.id].msg}</span>}
+</div>
+{stemsState[t.id]?.status==="ready"&&(
+<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:8}}>
+{stemsState[t.id].stems.map(st=>(
+<a key={st.label} href={st.url} download style={{...s.btn("m"),textDecoration:"none",width:"fit-content",padding:"7px 14px",fontSize:12}}>↓ {st.label}</a>
+))}
+</div>
+)}
+{t.id&&<OverlayRecorder trackId={t.id} baseAudioUrl={t.audio_url||t.url} initialMixUrl={t.overlay_mix_url}/>}
 </div>
 ))}
 </>}
@@ -788,6 +882,11 @@ textarea{resize:vertical}
 </div>
 ))}
 </div>
+{!instrumental&&(
+<div style={{fontSize:11,color:MU,lineHeight:1.5,marginBottom:14,padding:"8px 12px",background:"#1E1E35",border:`1px solid ${BR}`,borderRadius:8}}>
+💡 Se vuoi poi cantare o suonare tu sopra questa base con l'Overlay Recorder, torna indietro e scegli "Strumentale": altrimenti la base avrà già una voce AI.
+</div>
+)}
 <div style={{display:"flex",gap:10}}>
 <button style={{...s.btn("m"),flex:1}} onClick={confirmGenerate}>◈ Conferma e Genera</button>
 <button style={s.btn("g")} onClick={()=>setShowPreview(false)}>Modifica</button>

@@ -69,9 +69,47 @@ export default async function handler(req, res) {
       )
     `;
 
+    // migrazione: payload esatto mandato a kie.ai per generare questa take
+    // (prompt/style/model risolti), cosi' una rigenerazione overlay successiva
+    // non deve ricostruirlo da projects (che nel frattempo puo' essere cambiato)
+    await sql`alter table tracks add column if not exists generation_params jsonb`;
+    // migrazione: mix finale dell'overlay recorder (base + tutti i layer
+    // registrati/caricati, mixati insieme lato client). Vive sul track e non
+    // su una singola riga overlays perche' un mix multi-traccia combina PIU'
+    // layer in un solo file, non e' piu' un 1:1 con una singola registrazione.
+    await sql`alter table tracks add column if not exists overlay_mix_url text`;
+    // migrazione: id di generazione kie.ai, necessari per riusare la stessa
+    // take su altre API kie.ai (conversione WAV, export stem) senza
+    // ricaricare l'audio. Gia' scritti da api/tracks.js ma mai dichiarati
+    // qui — colonne mancanti nello schema.
+    await sql`alter table tracks add column if not exists kie_task_id text`;
+    await sql`alter table tracks add column if not exists kie_audio_id text`;
+
     await sql`create index if not exists idx_tracks_project_id on tracks(project_id)`;
     await sql`create index if not exists idx_projects_updated_at on projects(updated_at desc)`;
     await sql`create index if not exists idx_projects_user_id on projects(user_id)`;
+
+    await sql`
+      create table if not exists overlays (
+        id uuid primary key default gen_random_uuid(),
+        track_id uuid not null references tracks(id) on delete cascade,
+        project_id uuid not null references projects(id) on delete cascade,
+        overlay_type text not null default 'voice'
+          check (overlay_type in ('voice', 'effect', 'instrument')),
+        raw_audio_url text not null,
+        mixed_audio_url text,
+        regenerated_audio_url text,
+        regeneration_task_id text,
+        regeneration_mode text check (regeneration_mode in ('extend', 'cover', 'add_vocals')),
+        regeneration_status text not null default 'none'
+          check (regeneration_status in ('none', 'pending', 'completed', 'failed')),
+        regeneration_params jsonb,
+        regeneration_error text,
+        created_at timestamptz not null default now()
+      )
+    `;
+    await sql`create index if not exists idx_overlays_track_id on overlays(track_id)`;
+    await sql`create index if not exists idx_overlays_project_id on overlays(project_id)`;
 
     return res.status(200).json({ ok: true, message: "Schema creato/aggiornato." });
   } catch (e) {
