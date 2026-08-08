@@ -107,6 +107,7 @@ const [genStatus,setGenStatus]=useState("");
 const [generating,setGenerating]=useState(false);
 const [tracks,setTracks]=useState([]);
 const [wavState,setWavState]=useState({});
+const [stemsState,setStemsState]=useState({});
 
 const ch=getChords(key,scale);
 const toggle=s=>setSections(p=>p.includes(s)?p.filter(x=>x!==s):[...p,s]);
@@ -422,6 +423,56 @@ setTimeout(poll,3000);
 setTimeout(poll,4000);
 }catch(e){
 setWavState(p=>({...p,[track.id]:{status:"error",msg:e.message}}));
+}
+}
+
+// Separa un brano gia' generato in stem (voce/base, o fino a 12 strumenti)
+// tramite kie.ai. Stessa limitazione della conversione WAV: serve
+// kie_task_id/kie_audio_id salvati sul brano.
+async function exportStems(track,type){
+if(!track.kie_task_id||!track.kie_audio_id){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Brano generato prima di questa funzione: rigeneralo per esportare gli stem"}}));
+return;
+}
+setStemsState(p=>({...p,[track.id]:{status:"loading",msg:type==="split_stem"?"Separazione stem completa in corso...":"Separazione voce/base in corso..."}}));
+try{
+const r=await fetch("/api/stems",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"include",body:JSON.stringify({trackId:track.id,type})});
+const d=await r.json().catch(()=>({}));
+if(!r.ok||d.error){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:d.error||d.msg||"Errore avvio separazione"}}));
+return;
+}
+const stemsTaskId=d?.data?.taskId||d?.taskId;
+if(!stemsTaskId){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Nessun taskId ricevuto"}}));
+return;
+}
+let att=0;
+const poll=async()=>{
+if(att++>40){setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Timeout — riprova"}}));return;}
+try{
+const sr=await fetch(`/api/stems?taskId=${stemsTaskId}`,{credentials:"include"});
+const sd=await sr.json();
+const data=sd?.data||sd;
+const flag=data?.successFlag||data?.status;
+if(flag==="SUCCESS"){
+// I nomi esatti dei campi non sono documentati in modo affidabile:
+// prendiamo qualunque URL http(s) restituito in response, usando la
+// chiave come etichetta (es. "vocalUrl", "instrumentalUrl", "drums"...).
+const resp=data?.response||{};
+const stems=Object.entries(resp).filter(([,v])=>typeof v==="string"&&/^https?:\/\//.test(v)).map(([k,v])=>({label:k,url:v}));
+if(stems.length){setStemsState(p=>({...p,[track.id]:{status:"ready",stems}}));}
+else{setStemsState(p=>({...p,[track.id]:{status:"error",msg:"Separazione completata ma senza file"}}));}
+}else if(["CREATE_TASK_FAILED","GENERATE_STEM_FAILED","CALLBACK_EXCEPTION","FAILED"].includes(flag)){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:data?.errorMessage||flag}}));
+}else{
+setTimeout(poll,3000);
+}
+}catch{setTimeout(poll,4000);}
+};
+setTimeout(poll,4000);
+}catch(e){
+setStemsState(p=>({...p,[track.id]:{status:"error",msg:e.message}}));
 }
 }
 
@@ -760,6 +811,24 @@ textarea{resize:vertical}
 )}
 {wavState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {wavState[t.id].msg}</span>}
 </div>
+<div style={{marginTop:8,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+{stemsState[t.id]?.status==="loading"?(
+<span style={{fontSize:11,color:MU,fontFamily:"'JetBrains Mono',monospace"}}>⏳ {stemsState[t.id].msg}</span>
+):(
+<>
+<button onClick={()=>exportStems(t,"separate_vocal")} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎤 Separa voce/base</button>
+<button onClick={()=>exportStems(t,"split_stem")} style={{...s.btn("g"),padding:"7px 14px",fontSize:12}}>🎛 Stem completi</button>
+</>
+)}
+{stemsState[t.id]?.status==="error"&&<span style={{fontSize:11,color:"#FF5757"}}>❌ {stemsState[t.id].msg}</span>}
+</div>
+{stemsState[t.id]?.status==="ready"&&(
+<div style={{marginTop:8,display:"flex",flexWrap:"wrap",gap:8}}>
+{stemsState[t.id].stems.map(st=>(
+<a key={st.label} href={st.url} download style={{...s.btn("m"),textDecoration:"none",width:"fit-content",padding:"7px 14px",fontSize:12}}>↓ {st.label}</a>
+))}
+</div>
+)}
 {t.id&&<OverlayRecorder trackId={t.id} baseAudioUrl={t.audio_url||t.url} initialMixUrl={t.overlay_mix_url}/>}
 </div>
 ))}
